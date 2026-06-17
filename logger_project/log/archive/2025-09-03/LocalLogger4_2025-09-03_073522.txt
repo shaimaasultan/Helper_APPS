@@ -1,0 +1,5 @@
+✅ [2025-09-03 07:35:22] [INFO] Logger ready.
+✅ [2025-09-03 07:35:22] [INFO] Logger initialized.
+⚠️ [2025-09-03 07:35:22] [WARNING] Disk space below 10%.
+🔍 [2025-09-03 07:35:22] [DEBUG] Cache cleared for session 123.
+🔥 [2025-09-03 07:35:22] [CRITICAL] SMTP server error in payment gateway

@@ -1,0 +1,7 @@
+{"timestamp": "2025-09-03 08:13:47", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ 🔁 Logger reloaded from config.", "filename": "LocalLogger.py", "line": 204, "function": "reload_logger_from_config"}
+{"timestamp": "2025-09-03 08:13:47", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ Logger ready.", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}
+{"timestamp": "2025-09-03 08:13:47", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ Logger initialized.", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}
+{"timestamp": "2025-09-03 08:13:47", "level": "WARNING", "emoji": "⚠️", "logger": "LocalLogger", "message": "⚠️ Disk space below 10%.", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}
+{"timestamp": "2025-09-03 08:13:47", "level": "DEBUG", "emoji": "🔍", "logger": "LocalLogger", "message": "🔍 Cache cleared for session 123.", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}
+{"timestamp": "2025-09-03 08:13:47", "level": "CRITICAL", "emoji": "🔥", "logger": "LocalLogger", "message": "🔥 SMTP server error in payment gateway", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}
+{"timestamp": "2025-09-03 08:13:47", "level": "DEBUG", "emoji": "🔍", "logger": "LocalLogger", "message": "🔍 log", "filename": "LocalLogger.py", "line": 210, "function": "log_message"}

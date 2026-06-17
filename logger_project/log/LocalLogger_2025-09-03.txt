@@ -1,0 +1,7 @@
+✅ [2025-09-03 08:13:47] [INFO] 🔁 Logger reloaded from config.
+✅ [2025-09-03 08:13:47] [INFO] Logger ready.
+✅ [2025-09-03 08:13:47] [INFO] Logger initialized.
+⚠️ [2025-09-03 08:13:47] [WARNING] Disk space below 10%.
+🔍 [2025-09-03 08:13:47] [DEBUG] Cache cleared for session 123.
+🔥 [2025-09-03 08:13:47] [CRITICAL] SMTP server error in payment gateway
+🔍 [2025-09-03 08:13:47] [DEBUG] log

@@ -1,0 +1,2 @@
+{"timestamp": "2025-09-02 13:26:07", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ 🚀 App started", "filename": "LocalLogger.py", "line": 218, "function": "log_message"}
+{"timestamp": "2025-09-02 13:26:07", "level": "DEBUG", "emoji": "🔍", "logger": "LocalLogger", "message": "🔍 ✅ Computation result: 5.0", "filename": "LocalLogger.py", "line": 218, "function": "log_message"}

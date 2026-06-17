@@ -1,0 +1,2 @@
+✅ [2025-09-02 13:26:07] [INFO] 🚀 App started
+🔍 [2025-09-02 13:26:07] [DEBUG] ✅ Computation result: 5.0

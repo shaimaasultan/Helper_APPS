@@ -1,0 +1,5 @@
+{"timestamp": "2025-09-03 07:35:22", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ Logger ready.", "filename": "LocalLogger.py", "line": 209, "function": "log_message"}
+{"timestamp": "2025-09-03 07:35:22", "level": "INFO", "emoji": "✅", "logger": "LocalLogger", "message": "✅ Logger initialized.", "filename": "LocalLogger.py", "line": 209, "function": "log_message"}
+{"timestamp": "2025-09-03 07:35:22", "level": "WARNING", "emoji": "⚠️", "logger": "LocalLogger", "message": "⚠️ Disk space below 10%.", "filename": "LocalLogger.py", "line": 209, "function": "log_message"}
+{"timestamp": "2025-09-03 07:35:22", "level": "DEBUG", "emoji": "🔍", "logger": "LocalLogger", "message": "🔍 Cache cleared for session 123.", "filename": "LocalLogger.py", "line": 209, "function": "log_message"}
+{"timestamp": "2025-09-03 07:35:22", "level": "CRITICAL", "emoji": "🔥", "logger": "LocalLogger", "message": "🔥 SMTP server error in payment gateway", "filename": "LocalLogger.py", "line": 209, "function": "log_message"}
