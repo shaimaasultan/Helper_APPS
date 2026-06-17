@@ -1,0 +1,29 @@
+﻿body {
+    background:#222;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+}
+
+canvas {
+    border:2px solid white;
+    background:black;
+    margin-top:20px;
+    outline:none;
+}
+
+input {
+    padding:5px;
+    margin:5px;
+    width:80px;
+}
+
+button {
+    padding:10px 20px;
+    font-size:16px;
+    margin:10px;
+}
+
+#speedValue {
+    font-weight:bold;
+}

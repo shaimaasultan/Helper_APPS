@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+			<title>Pixel Maze + Start Anywhere + Solver</title>
+			<link rel="stylesheet" href="style.css">
+</head>
+	<body>
+
+		<h2>Pixel Maze + Start Anywhere + Green Solver Trace</h2>
+
+		Maze Width: <input id="mw" type="number" value="241">
+			Maze Height: <input id="mh" type="number" value="241">
+				<button onclick="generateMaze()">Generate Maze</button>
+				<button onclick="solveImageMaze()">Solve Maze</button>
+
+				<br>
+					<br>
+
+						Speed:
+						<input type="range" id="speedSlider" min="1" max="20" value="5" oninput="updateSpeed()">
+							<span id="speedValue">5</span>
+
+							<br>
+								<br>
+
+									Solve Time: <span id="solveTime">0 ms</span>
+
+									<br>
+
+										<canvas id="view" width="700" height="700" tabindex="0"></canvas>
+
+										<script src="maze.js"></script>
+									</body>
+</html>

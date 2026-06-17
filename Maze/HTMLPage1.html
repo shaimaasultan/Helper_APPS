@@ -1,0 +1,111 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Joystick Complex Motion</title>
+		<style>
+			canvas { border:1px solid black; background:#fafafa; }
+		</style>
+	</head>
+	<body>
+
+		<canvas id="plot" width="700" height="700"></canvas>
+
+		<script>
+			// -----------------------------
+			// PARAMETERS
+			// -----------------------------
+			let h = 0;            // NEW: pure horizontal control
+			let b = 5;            // still used inside sqrt
+			let A = 2, B = 1, C = 1, D = 1;
+
+			const maxX = 20, maxY = 20;
+			const speed = 0.05;   // joystick sensitivity
+
+			// Joystick state
+			let joyX = 0;
+			let joyY = 0;
+
+			// -----------------------------
+			// COMPLEX POINT COMPUTATION
+			// x = h  (pure horizontal)
+			// y = (A/B) * sqrt(2*|b|*D/C)
+			// -----------------------------
+			function computePoint() {
+			const x = h;
+			const y = (A / B) * Math.sqrt((2 * Math.abs(b) * D) / C);
+			return { x, y };
+			}
+
+			// -----------------------------
+			// KEYBOARD JOYSTICK (WASD + arrows)
+			// -----------------------------
+			document.addEventListener("keydown", e => {
+			if (e.key === "ArrowLeft"  || e.key === "a") joyX = -1;
+			if (e.key === "ArrowRight" || e.key === "d") joyX =  1;
+			if (e.key === "ArrowUp"    || e.key === "w") joyY = -1;
+			if (e.key === "ArrowDown"  || e.key === "s") joyY =  1;
+			});
+
+			document.addEventListener("keyup", e => {
+			if (["ArrowLeft","a","ArrowRight","d"].includes(e.key)) joyX = 0;
+			if (["ArrowUp","w","ArrowDown","s"].includes(e.key))    joyY = 0;
+			});
+
+			// -----------------------------
+			// DRAWING
+			// -----------------------------
+			const canvas = document.getElementById("plot");
+			const ctx = canvas.getContext("2d");
+			const cx = canvas.width / 2;
+			const cy = canvas.height / 2;
+			const scale = 15;
+
+			function drawPoint(pt, color = "blue") {
+			ctx.fillStyle = color;
+			ctx.beginPath();
+			ctx.arc(cx + pt.x * scale, cy - pt.y * scale, 3, 0, 2 * Math.PI);
+			ctx.fill();
+			}
+
+			// optional: draw axes once
+			function drawAxes() {
+			ctx.strokeStyle = "#ccc";
+			ctx.beginPath();
+			ctx.moveTo(0, cy);
+			ctx.lineTo(canvas.width, cy);
+			ctx.moveTo(cx, 0);
+			ctx.lineTo(cx, canvas.height);
+			ctx.stroke();
+			}
+
+			// -----------------------------
+			// ANIMATION LOOP
+			// -----------------------------
+			function animate() {
+			// PURE horizontal motion
+			h += joyX * speed;
+
+			// PURE vertical motion
+			A -= joyY * speed;
+
+			// Compute new point
+			let pt = computePoint();
+
+			// Enforce bounds
+			pt.x = Math.max(-maxX, Math.min(maxX, pt.x));
+			pt.y = Math.max(-maxY, Math.min(maxY, pt.y));
+
+			// Draw trail
+			drawPoint(pt, "blue");
+
+			requestAnimationFrame(animate);
+			}
+
+			// Initial axes and start
+			drawAxes();
+			animate();
+		</script>
+
+	</body>
+</html>

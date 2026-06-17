@@ -1,0 +1,209 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+			<title>Random Maze + Continuous Joystick Motion</title>
+			<style>
+				body { background:#222; color:white; font-family:Arial; text-align:center; }
+				canvas { border:2px solid white; background:black; margin-top:20px; outline:none; }
+				input { padding:5px; margin:5px; width:80px; }
+				button { padding:10px 20px; font-size:16px; margin:10px; }
+			</style>
+		</head>
+	<body>
+
+		<h2>Random Maze + Continuous Joystick Motion</h2>
+
+		Maze Width: <input id="mw" type="number" value="10">
+			Maze Height: <input id="mh" type="number" value="10">
+				<button onclick="generateMaze()">Generate Maze</button>
+
+				<br>
+
+					<!-- ⭐ Canvas is now focusable -->
+					<canvas id="view" width="500" height="500" tabindex="0"></canvas>
+
+					<script>
+						// ======================================================
+						// RANDOM MAZE GENERATOR (DFS)
+						// ======================================================
+						function createMaze(w, h) {
+						const maze = [];
+						for (let y = 0; y < h; y++) {
+        maze[y] = [];
+        for (let x = 0; x < w; x++) maze[y][x] = 1;
+    }
+
+    function carve(x, y) {
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]].sort(() => Math.random() - 0.5);
+        maze[y][x] = 0;
+
+        for (const [dx, dy] of dirs) {
+            const nx = x + dx*2;
+            const ny = y + dy*2;
+            if (ny >= 0 && ny < h && nx >= 0 && nx < w && maze[ny][nx] === 1) {
+						maze[y + dy][x + dx] = 0;
+						carve(nx, ny);
+						}
+						}
+						}
+
+						carve(1,1);
+						return maze;
+						}
+
+						// ======================================================
+						// GLOBALS
+						// ======================================================
+						let maze = null;
+						let mazeCanvas = document.createElement("canvas");
+						let mazeCtx = mazeCanvas.getContext("2d");
+
+						const view = document.getElementById("view");
+						const ctx = view.getContext("2d");
+
+						// ⭐ Focus canvas so keys go ONLY to it
+						view.focus();
+
+						// Player + formula parameters
+						let hPos = 1.5;
+						let b = 5;
+						let A = 1.5, B = 1, C = 1, D = 1;
+
+						const speed = 0.05;
+						let joyX = 0, joyY = 0;
+
+						let exitX = 0, exitY = 0;
+
+						// ======================================================
+						// KEYBOARD INPUT (BOUND TO CANVAS ONLY)
+						// ======================================================
+						view.addEventListener("keydown", e => {
+						if (e.key === "ArrowLeft"  || e.key === "a") joyX = -1;
+						if (e.key === "ArrowRight" || e.key === "d") joyX =  1;
+
+						// Original mapping (Up = -1, Down = +1)
+						if (e.key === "ArrowUp"    || e.key === "w") joyY = -1;
+						if (e.key === "ArrowDown"  || e.key === "s") joyY =  1;
+						});
+
+						view.addEventListener("keyup", e => {
+						if (["ArrowLeft","a","ArrowRight","d"].includes(e.key)) joyX = 0;
+						if (["ArrowUp","w","ArrowDown","s"].includes(e.key))    joyY = 0;
+						});
+
+						// ======================================================
+						// COMPLEX Y FORMULA
+						// ======================================================
+						function computeY(Aval) {
+						return (Aval / B) * Math.sqrt((2 * Math.abs(b) * D) / C);
+						}
+
+						// ======================================================
+						// COLLISION CHECK
+						// ======================================================
+						function isFree(x, y) {
+						const px = Math.floor(x);
+						const py = Math.floor(y);
+
+						if (px < 0 || py < 0 || px >= mazeCanvas.width || py >= mazeCanvas.height)
+        return false;
+
+    const pixel = mazeCtx.getImageData(px, py, 1, 1).data;
+    return (pixel[0] + pixel[1] + pixel[2]) > 400;
+}
+
+// ======================================================
+// DRAW MAZE TO OFFSCREEN CANVAS
+// ======================================================
+function drawMazeToCanvas(maze) {
+    const rows = maze.length;
+    const cols = maze[0].length;
+
+    mazeCanvas.width = cols;
+    mazeCanvas.height = rows;
+
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            mazeCtx.fillStyle = maze[y][x] === 1 ? "black" : "white";
+            mazeCtx.fillRect(x, y, 1, 1);
+        }
+    }
+}
+
+// ======================================================
+// MAIN ANIMATION LOOP
+// ======================================================
+function animate() {
+    ctx.clearRect(0,0,view.width,view.height);
+
+    if (maze) {
+        let newH = hPos + joyX * speed;
+
+        // ⭐ FIXED vertical direction (Up moves up)
+        let newA = A + joyY * speed;
+
+        let newX = newH;
+        let newY = computeY(newA);
+
+        if (isFree(newX, newY)) {
+            hPos = newH;
+            A = newA;
+        }
+
+        ctx.drawImage(mazeCanvas, 0, 0, view.width, view.height);
+
+        const scaleX = view.width / mazeCanvas.width;
+        const scaleY = view.height / mazeCanvas.height;
+
+        const px = hPos;
+        const py = computeY(A);
+
+        // Player
+        ctx.fillStyle = "red";
+        ctx.beginPath();
+        ctx.arc(px * scaleX, py * scaleY, 5, 0, 2*Math.PI);
+        ctx.fill();
+
+        // Exit
+        ctx.fillStyle = "lime";
+        ctx.beginPath();
+        ctx.arc(exitX * scaleX, exitY * scaleY, 6, 0, 2*Math.PI);
+        ctx.fill();
+
+        // Solved?
+        if (Math.hypot(px - exitX, py - exitY) < 1.0) {
+            ctx.fillStyle = "lime";
+            ctx.font = "40px Arial";
+            ctx.fillText("MAZE SOLVED!", 20, 50);
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+// ======================================================
+// GENERATE MAZE
+// ======================================================
+function generateMaze() {
+    const mw = parseInt(document.getElementById("mw").value);
+    const mh = parseInt(document.getElementById("mh").value);
+
+    maze = createMaze(mw, mh);
+    drawMazeToCanvas(maze);
+
+    hPos = 1.5;
+    A = 1.5;
+
+    exitX = mazeCanvas.width - 2;
+    exitY = mazeCanvas.height - 2;
+
+    view.focus(); // keep canvas focused after clicking button
+}
+
+// Start animation once
+animate();
+					</script>
+
+				</body>
+</html>
