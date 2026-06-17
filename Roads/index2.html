@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Road Extractor (White Roads / Black Background)</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; padding:20px; }
+  input { margin-bottom:10px; }
+  canvas { border:1px solid #555; background:#000; display:block; margin-top:20px; }
+</style>
+</head>
+<body>
+
+<h2>Convert Road Map → Black & White (Roads = White)</h2>
+
+<input type="file" id="imgInput" accept="image/*">
+<br>
+<button onclick="convertRoads()">Convert Roads</button>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let loadedImage = null;
+
+// Load image
+document.getElementById("imgInput").onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => {
+        loadedImage = img;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+    };
+    img.src = URL.createObjectURL(file);
+};
+
+// Convert to black/white with roads white
+function convertRoads() {
+    if (!loadedImage) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    // Roads in your PDF are light gray/white
+    // Everything else is darker
+    const threshold = 180; // tune if needed
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+
+        const brightness = (r + g + b) / 3;
+
+        if (brightness > threshold) {
+            // road → white
+            data[i] = data[i+1] = data[i+2] = 0;
+        } else {
+            // background → black
+            data[i] = data[i+1] = data[i+2] = 255;
+        }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+}
+</script>
+
+</body>
+</html>

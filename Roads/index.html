@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Blue Road Path Solver</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; padding:20px; }
+  button { padding:8px 16px; margin-right:8px; background:#333; color:#fff; border:1px solid #555; cursor:pointer; }
+  button:hover { background:#444; }
+  canvas { border:1px solid #555; margin-top:16px; background:#000; display:block; }
+</style>
+</head>
+<body>
+
+<h2>Blue Road Solver (No Conversion)</h2>
+
+<input type="file" id="imgInput" accept="image/*">
+<button id="solveBtn">Solve Path</button>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let imgData = null;
+let grid = null;          // 0 = blue road, 1 = blocked
+let startPoint = null;
+let targetPoint = null;
+
+// ------------------------------
+// LOAD IMAGE
+// ------------------------------
+document.getElementById("imgInput").onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+        imgData = ctx.getImageData(0, 0, img.width, img.height);
+
+        buildBlueRoadGrid();
+        startPoint = null;
+        targetPoint = null;
+    };
+    img.src = URL.createObjectURL(file);
+};
+
+// ------------------------------
+// COLOR TEST: BLUE ROADS
+// ------------------------------
+function isRoad(r, g, b) {
+    // blue dominant
+    const blueDominant = b > r + 20 && b > g + 20;
+
+    // avoid white background
+    const notWhite = !(r > 200 && g > 200 && b > 200);
+
+    // avoid green parks
+    const notGreen = !(g > 150 && g > r && g > b);
+
+    return blueDominant && notWhite && notGreen;
+}
+
+// ------------------------------
+// BUILD GRID FROM BLUE PIXELS
+// ------------------------------
+function buildBlueRoadGrid() {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    grid = Array.from({length:h}, () => Array(w).fill(1));
+    const data = imgData.data;
+
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y*w + x)*4;
+            const r = data[i], g = data[i+1], b = data[i+2];
+
+            if (isRoad(r,g,b)) {
+                grid[y][x] = 0; // walkable blue road
+            }
+        }
+    }
+
+    // optional: thicken roads a bit
+    grid = thickenGrid(grid);
+}
+
+function thickenGrid(g) {
+    const h = g.length;
+    const w = g[0].length;
+    let out = JSON.parse(JSON.stringify(g));
+
+    for (let y = 1; y < h-1; y++) {
+        for (let x = 1; x < w-1; x++) {
+            if (g[y][x] === 0) {
+                out[y][x-1] = 0;
+                out[y][x+1] = 0;
+                out[y-1][x] = 0;
+                out[y+1][x] = 0;
+            }
+        }
+    }
+    return out;
+}
+
+// ------------------------------
+// CLICK TO SET START / TARGET
+// ------------------------------
+canvas.addEventListener("click", e => {
+    if (!grid) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor(e.clientX - rect.left);
+    const y = Math.floor(e.clientY - rect.top);
+
+    // allow clicks ONLY on blue roads
+    if (grid[y][x] !== 0) return;
+
+    if (!startPoint) {
+        startPoint = {x,y};
+        redrawImage();
+        drawMarker(x,y,"lime");
+    } else if (!targetPoint) {
+        targetPoint = {x,y};
+        redrawImage();
+        drawMarker(startPoint.x,startPoint.y,"lime");
+        drawMarker(x,y,"red");
+    } else {
+        startPoint = {x,y};
+        targetPoint = null;
+        redrawImage();
+        drawMarker(x,y,"lime");
+    }
+});
+
+function redrawImage() {
+    if (imgData) ctx.putImageData(imgData, 0, 0);
+}
+
+function drawMarker(x,y,color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x-3, y-3, 6, 6);
+}
+
+// ------------------------------
+// SOLVE PATH (BFS ON BLUE PIXELS)
+// ------------------------------
+document.getElementById("solveBtn").onclick = () => {
+    if (!grid) return alert("Load an image first.");
+    if (!startPoint || !targetPoint) return alert("Click to set START and TARGET on blue roads.");
+
+    const parent = bfsSolve(startPoint, targetPoint);
+    if (!parent) {
+        alert("No path found.");
+        return;
+    }
+
+    redrawImage();
+    drawPath(parent);
+};
+
+function canMoveDiagonal(x,y,dx,dy,grid) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (grid[ny][nx] !== 0) return false;
+    if (grid[y][nx] !== 0) return false;
+    if (grid[ny][x] !== 0) return false;
+    return true;
+}
+
+function bfsSolve(start, target) {
+    const h = grid.length;
+    const w = grid[0].length;
+
+    const queue = [start];
+    const visited = new Set();
+    const parent = {};
+    const key = (x,y)=>`${x},${y}`;
+
+    visited.add(key(start.x,start.y));
+
+    const dirs = [
+        [1,0],[-1,0],[0,1],[0,-1],
+        [1,1],[1,-1],[-1,1],[-1,-1]
+    ];
+
+    while (queue.length) {
+        const {x,y} = queue.shift();
+        if (x===target.x && y===target.y) return parent;
+
+        for (const [dx,dy] of dirs) {
+            const nx = x+dx, ny = y+dy;
+            if (nx<0||ny<0||nx>=w||ny>=h) continue;
+
+            // diagonal corner-cutting check
+            if (Math.abs(dx)+Math.abs(dy) === 2) {
+                if (!canMoveDiagonal(x,y,dx,dy,grid)) continue;
+            }
+
+            if (grid[ny][nx] !== 0) continue; // must be blue road
+
+            const k = key(nx,ny);
+            if (!visited.has(k)) {
+                visited.add(k);
+                parent[k] = {x,y};
+                queue.push({x:nx,y:ny});
+            }
+        }
+    }
+    return null;
+}
+
+function drawPath(parent) {
+    ctx.fillStyle = "cyan";
+    let cur = `${targetPoint.x},${targetPoint.y}`;
+
+    while (parent[cur]) {
+        const [x,y] = cur.split(",").map(Number);
+        ctx.fillRect(x,y,2,2);
+        cur = `${parent[cur].x},${parent[cur].y}`;
+    }
+
+    drawMarker(startPoint.x,startPoint.y,"lime");
+    drawMarker(targetPoint.x,targetPoint.y,"red");
+}
+</script>
+
+</body>
+</html>

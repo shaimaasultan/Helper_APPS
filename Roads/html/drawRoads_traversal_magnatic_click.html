@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Road Viewer + Pixel Path Solver + Animation + Snap</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; }
+  canvas { border:1px solid #555; background:#000; cursor:pointer; }
+  button { padding:8px 16px; margin:10px; background:#333; color:#fff; border:1px solid #555; }
+</style>
+</head>
+<body>
+
+<h2>Road Viewer + Pixel-Based Path Solver + Animation + Snap</h2>
+<input type="file" id="fileInput" accept=".geojson">
+<button id="clearBtn">Clear Start/Target</button>
+<canvas id="canvas" width="1600" height="1200"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// hidden raster canvas for pixel solver
+const rCanvas = document.createElement("canvas");
+rCanvas.width = canvas.width;
+rCanvas.height = canvas.height;
+const rCtx = rCanvas.getContext("2d");
+
+let geojson = null;
+let scale = 1, offsetX = 0, offsetY = 0;
+let minX, minY, maxX, maxY;
+
+let startPix = null;
+let targetPix = null;
+let solvedPixels = [];
+
+// animation state
+let animIndex = 0;
+let animating = false;
+let animationSpeed = 3;
+
+// ------------------------------
+// LOAD GEOJSON
+// ------------------------------
+document.getElementById("fileInput").onchange = function() {
+    const file = this.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+        geojson = JSON.parse(reader.result);
+        computeBounds();
+        drawRoads();
+    };
+    reader.readAsText(file);
+};
+
+document.getElementById("clearBtn").onclick = () => {
+    startPix = null;
+    targetPix = null;
+    solvedPixels = [];
+    animating = false;
+    drawRoads();
+};
+
+// ------------------------------
+// BOUNDS + SCALE
+// ------------------------------
+function computeBounds() {
+    minX = minY = 1e9;
+    maxX = maxY = -1e9;
+
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        coords.forEach(([x,y]) => {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        });
+    });
+
+    scale = Math.min(
+        canvas.width / (maxX - minX),
+        canvas.height / (maxY - minY)
+    );
+
+    offsetX = -minX;
+    offsetY = -minY;
+}
+
+// map coords → pixel coords
+function mapToPixel(x, y) {
+    const px = (x + offsetX) * scale;
+    const py = canvas.height - (y + offsetY) * scale;
+    return {x: Math.round(px), y: Math.round(py)};
+}
+
+// ------------------------------
+// DRAW ROADS ON BOTH CANVASES
+// ------------------------------
+function drawRoads() {
+    // visible
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle = "#44aaff";
+    ctx.lineWidth = 1;
+
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        ctx.beginPath();
+        coords.forEach(([x,y], i) => {
+            const p = mapToPixel(x,y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+    });
+
+    // raster (white roads on black)
+    rCtx.clearRect(0,0,rCanvas.width,rCanvas.height);
+    rCtx.fillStyle = "#000";
+    rCtx.fillRect(0,0,rCanvas.width,rCanvas.height);
+
+    rCtx.strokeStyle = "#ffffff";
+    rCtx.lineWidth = 2;
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        rCtx.beginPath();
+        coords.forEach(([x,y], i) => {
+            const p = mapToPixel(x,y);
+            if (i === 0) rCtx.moveTo(p.x, p.y);
+            else rCtx.lineTo(p.x, p.y);
+        });
+        rCtx.stroke();
+    });
+
+    // draw animated path
+    drawAnimatedPath();
+
+    // draw start/target markers
+    if (startPix) drawMarker(startPix.x, startPix.y, "lime");
+    if (targetPix) drawMarker(targetPix.x, targetPix.y, "red");
+}
+
+function drawMarker(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI*2);
+    ctx.fill();
+}
+
+// ------------------------------
+// CLICK → SNAP TO NEAREST ROAD PIXEL
+// ------------------------------
+function findNearestRoadPixel(px, py, radius = 6) {
+    const w = rCanvas.width;
+    const h = rCanvas.height;
+    const img = rCtx.getImageData(0,0,w,h);
+    const data = img.data;
+
+    function isRoad(x,y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const idx = (y*w + x)*4;
+        return data[idx] > 200 && data[idx+1] > 200 && data[idx+2] > 200;
+    }
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            const nx = px + dx;
+            const ny = py + dy;
+            if (!isRoad(nx, ny)) continue;
+
+            const d = dx*dx + dy*dy;
+            if (d < bestDist) {
+                bestDist = d;
+                best = {x: nx, y: ny};
+            }
+        }
+    }
+
+    return best;
+}
+
+canvas.onclick = function(e) {
+    if (!geojson) return;
+
+    const rect = canvas.getBoundingClientRect();
+    let px = Math.round(e.clientX - rect.left);
+    let py = Math.round(e.clientY - rect.top);
+
+    // SNAP CLICK TO NEAREST ROAD PIXEL
+    const snapped = findNearestRoadPixel(px, py, 6);
+    if (snapped) {
+        px = snapped.x;
+        py = snapped.y;
+    }
+
+    if (!startPix) {
+        startPix = {x: px, y: py};
+        targetPix = null;
+        solvedPixels = [];
+        animating = false;
+    } else if (!targetPix) {
+        targetPix = {x: px, y: py};
+        solvedPixels = solvePixelPath(startPix, targetPix);
+
+        animIndex = 0;
+        animating = true;
+        animate();
+    } else {
+        startPix = {x: px, y: py};
+        targetPix = null;
+        solvedPixels = [];
+        animating = false;
+    }
+
+    drawRoads();
+};
+
+// ------------------------------
+// PIXEL-BASED BFS SOLVER
+// ------------------------------
+function solvePixelPath(start, target) {
+    const w = rCanvas.width;
+    const h = rCanvas.height;
+    const img = rCtx.getImageData(0,0,w,h);
+    const data = img.data;
+
+    function isRoad(x,y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const idx = (y*w + x)*4;
+        return data[idx] > 200 && data[idx+1] > 200 && data[idx+2] > 200;
+    }
+
+    const sx = start.x, sy = start.y;
+    const tx = target.x, ty = target.y;
+
+    if (!isRoad(sx,sy) || !isRoad(tx,ty)) return [];
+
+    const visited = new Uint8Array(w*h);
+    const prev = new Int32Array(w*h);
+    prev.fill(-1);
+
+    const qx = new Int32Array(w*h);
+    const qy = new Int32Array(w*h);
+    let qh = 0, qt = 0;
+
+    function push(x,y) {
+        const idx = y*w + x;
+        visited[idx] = 1;
+        qx[qt] = x;
+        qy[qt] = y;
+        qt++;
+    }
+
+    push(sx,sy);
+
+    const dirs = [
+        [1,0],[-1,0],[0,1],[0,-1]
+    ];
+
+    let found = false;
+    while (qh < qt) {
+        const x = qx[qh];
+        const y = qy[qh];
+        qh++;
+
+        if (x === tx && y === ty) {
+            found = true;
+            break;
+        }
+
+        for (const [dx,dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const idx = ny*w + nx;
+            if (visited[idx]) continue;
+            if (!isRoad(nx,ny)) continue;
+            visited[idx] = 1;
+            prev[idx] = y*w + x;
+            qx[qt] = nx;
+            qy[qt] = ny;
+            qt++;
+        }
+    }
+
+    if (!found) return [];
+
+    // reconstruct path
+    const path = [];
+    let idx = ty*w + tx;
+    while (idx !== -1) {
+        const x = idx % w;
+        const y = (idx / w) | 0;
+        path.push({x,y});
+        idx = prev[idx];
+    }
+    path.reverse();
+    return path;
+}
+
+// ------------------------------
+// ANIMATION
+// ------------------------------
+function drawAnimatedPath() {
+    if (!solvedPixels.length) return;
+
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    for (let i = 0; i < animIndex; i++) {
+        const p = solvedPixels[i];
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+    }
+
+    ctx.stroke();
+}
+
+function animate() {
+    if (!animating) return;
+
+    animIndex += animationSpeed;
+
+    if (animIndex >= solvedPixels.length) {
+        animIndex = solvedPixels.length;
+        animating = false;
+        drawRoads();
+        drawAnimatedPath();
+        return;
+    }
+
+    drawRoads();
+    drawAnimatedPath();
+
+    requestAnimationFrame(animate);
+}
+</script>
+
+</body>
+</html>

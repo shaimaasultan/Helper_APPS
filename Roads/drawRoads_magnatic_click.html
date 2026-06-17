@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Road Viewer + Pixel Path Solver + Snap</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; }
+  canvas { border:1px solid #555; background:#000; cursor:pointer; }
+  button { padding:8px 16px; margin:10px; background:#333; color:#fff; border:1px solid #555; }
+</style>
+</head>
+<body>
+
+<h2>Road Viewer + Pixel-Based Path Solver + Snap</h2>
+<div style="display:flex; align-items:center; gap:20px; margin-bottom:10px;">
+
+    <input type="file" id="fileInput" accept=".geojson">
+
+    <button id="clearBtn">Clear Start/Target</button>
+
+    <div id="info" style="font-size:18px; color:#0f0;"></div>
+
+    <div id="groups" style="font-size:16px; color:#0ff;"></div>
+    <canvas id="compass" width="150" height="150" style="border:1px solid #555; margin-top:10px;"></canvas>
+
+</div>
+
+
+<canvas id="canvas" width="680" height="800"></canvas>
+
+<div id="turns" style="margin:10px; font-size:16px; color:#0af;"></div>
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// hidden raster canvas for pixel solver
+const rCanvas = document.createElement("canvas");
+rCanvas.width = canvas.width;
+rCanvas.height = canvas.height;
+const rCtx = rCanvas.getContext("2d");
+
+let geojson = null;
+let scale = 1, offsetX = 0, offsetY = 0;
+let minX, minY, maxX, maxY;
+
+let startPix = null;
+let targetPix = null;
+let solvedPixels = [];
+
+function computePathInfo(path) {
+    if (!path || path.length < 2) return {steps: 0, dist: 0};
+
+    let dist = 0;
+    for (let i = 1; i < path.length; i++) {
+        const dx = path[i].x - path[i-1].x;
+        const dy = path[i].y - path[i-1].y;
+        dist += Math.sqrt(dx*dx + dy*dy);
+    }
+
+    return {
+        steps: path.length,
+        dist: dist
+    };
+}
+function computeTurnCount(path) {
+    if (path.length < 3) return 0;
+
+    let turns = 0;
+
+    for (let i = 2; i < path.length; i++) {
+        const p0 = path[i-2];
+        const p1 = path[i-1];
+        const p2 = path[i];
+
+        const v1x = p1.x - p0.x;
+        const v1y = p1.y - p0.y;
+        const v2x = p2.x - p1.x;
+        const v2y = p2.y - p1.y;
+
+        const dot = v1x*v2x + v1y*v2y;
+        const m1 = Math.sqrt(v1x*v1x + v1y*v1y);
+        const m2 = Math.sqrt(v2x*v2x + v2y*v2y);
+
+        if (m1 === 0 || m2 === 0) continue;
+
+        const angle = Math.acos(dot / (m1*m2)) * (180 / Math.PI);
+
+        if (angle > 30) turns++;
+    }
+
+    return turns;
+}
+function computePixelDistance(path) {
+    let dist = 0;
+    for (let i = 1; i < path.length; i++) {
+        const dx = path[i].x - path[i-1].x;
+        const dy = path[i].y - path[i-1].y;
+        dist += Math.sqrt(dx*dx + dy*dy);
+    }
+    return dist;
+}
+function pixelsToMeters(pxDist) {
+    const metersPerPixel = (maxX - minX) / canvas.width * 111320;
+    return pxDist * metersPerPixel;
+}
+function computeTravelTimeMeters(meters, speedKmh = 50) {
+    const speedMps = speedKmh * 1000 / 3600;
+    return meters / speedMps; // seconds
+}
+function computeComplexity(turns, meters) {
+    return turns * 2 + (meters / 100);
+}
+function directionName(dx, dy) {
+    const angle = Math.atan2(-dy, dx) * 180 / Math.PI; // invert y for screen coords
+    const dirs = ["E","NE","N","NW","W","SW","S","SE","E"];
+    return dirs[Math.round((angle + 360) % 360 / 45)];
+}
+function metersPerPixel() {
+    const lonSpan = maxX - minX; // degrees
+    const metersPerDegree = 111320 * Math.cos(43.6 * Math.PI/180);
+    return (lonSpan * metersPerDegree) / canvas.width;
+}
+function pxToMeters(px) {
+    return px * metersPerPixel();
+}
+
+function generateTurnByTurn(path) {
+    if (path.length < 3) return [];
+
+    const steps = [];
+    let segmentStart = path[0];
+    let prevDir = null;
+
+    function segmentDistance(a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    for (let i = 1; i < path.length - 1; i++) {
+        const p0 = path[i-1];
+        const p1 = path[i];
+        const p2 = path[i+1];
+
+        const v1x = p1.x - p0.x;
+        const v1y = p1.y - p0.y;
+        const v2x = p2.x - p1.x;
+        const v2y = p2.y - p1.y;
+
+        const dir = directionName(v1x, v1y);
+
+        if (prevDir === null) prevDir = dir;
+
+        // compute angle
+        const dot = v1x*v2x + v1y*v2y;
+        const m1 = Math.sqrt(v1x*v1x + v1y*v1y);
+        const m2 = Math.sqrt(v2x*v2x + v2y*v2y);
+        const angle = Math.acos(dot / (m1*m2)) * 180 / Math.PI;
+
+        // detect turn
+        if (angle > 30) {
+            const turnType = (v1x*v2y - v1y*v2x) > 0 ? "Turn left" : "Turn right";
+
+            const dist = segmentDistance(segmentStart, p1);
+
+            steps.push({
+                type: turnType,
+                direction: prevDir,
+                distance: dist
+            });
+
+            segmentStart = p1;
+            prevDir = directionName(v2x, v2y);
+        }
+    }
+
+    // final segment
+    const lastDist = segmentDistance(segmentStart, path[path.length-1]);
+    steps.push({
+        type: "Continue",
+        direction: prevDir,
+        distance: lastDist
+    });
+
+    return steps;
+}
+const directionGroups = {
+    "N":  "Northbound",
+    "NE": "Northbound",
+    "NW": "Northbound",
+
+    "S":  "Southbound",
+    "SE": "Southbound",
+    "SW": "Southbound",
+
+    "E":  "Eastbound",
+    "W":  "Westbound"
+};
+function groupAndSumByDirection(instructions) {
+    const groups = {
+        "Northbound": 0,
+        "Southbound": 0,
+        "Eastbound": 0,
+        "Westbound": 0
+    };
+
+    instructions.forEach(step => {
+        const groupName = directionGroups[step.direction];
+        if (groupName) {
+            const meters = pxToMeters(step.distance);
+            groups[groupName] += meters;
+        }
+    });
+
+    return groups;
+}
+
+
+function drawCompassRose(totals) {
+    const c = document.getElementById("compass");
+    const ctx2 = c.getContext("2d");
+
+    ctx2.clearRect(0, 0, c.width, c.height);
+
+    const cx = c.width / 2;
+    const cy = c.height / 2;
+    const maxRadius = 120;
+
+    // find max distance to scale bars
+    const maxVal = Math.max(
+        totals.Northbound,
+        totals.Eastbound,
+        totals.Southbound,
+        totals.Westbound,
+        1
+    );
+
+    // draw outer circle
+    ctx2.strokeStyle = "#888";
+    ctx2.lineWidth = 2;
+    ctx2.beginPath();
+    ctx2.arc(cx, cy, maxRadius, 0, Math.PI * 2);
+    ctx2.stroke();
+
+    // helper to draw a bar
+    function drawBar(angleDeg, value, color) {
+        const angle = angleDeg * Math.PI / 180;
+        const r = (value / maxVal) * maxRadius;
+
+        const x2 = cx + r * Math.cos(angle);
+        const y2 = cy + r * Math.sin(angle);
+
+        ctx2.strokeStyle = color;
+        ctx2.lineWidth = 8;
+        ctx2.beginPath();
+        ctx2.moveTo(cx, cy);
+        ctx2.lineTo(x2, y2);
+        ctx2.stroke();
+    }
+
+    // draw bars
+    drawBar(-90, totals.Northbound, "#00ffff"); // N
+    drawBar(0,   totals.Eastbound,  "#ffff00"); // E
+    drawBar(90,  totals.Southbound, "#ff00ff"); // S
+    drawBar(180, totals.Westbound,  "#00ff00"); // W
+
+    // labels
+    ctx2.fillStyle = "#fff";
+    ctx2.font = "20px sans-serif";
+    ctx2.fillText("N", cx - 8, cy - maxRadius - 10);
+    ctx2.fillText("S", cx - 6, cy + maxRadius + 25);
+    ctx2.fillText("E", cx + maxRadius + 10, cy + 6);
+    ctx2.fillText("W", cx - maxRadius - 25, cy + 6);
+}
+
+
+// ------------------------------
+// LOAD GEOJSON
+// ------------------------------
+document.getElementById("fileInput").onchange = function() {
+    const file = this.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+        geojson = JSON.parse(reader.result);
+        computeBounds();
+        drawRoads();
+    };
+    reader.readAsText(file);
+};
+
+document.getElementById("clearBtn").onclick = () => {
+    startPix = null;
+    targetPix = null;
+    solvedPixels = [];
+    drawRoads();
+};
+
+// ------------------------------
+// BOUNDS + SCALE
+// ------------------------------
+function computeBounds() {
+    minX = minY = 1e9;
+    maxX = maxY = -1e9;
+
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        coords.forEach(([x,y]) => {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        });
+    });
+
+    scale = Math.min(
+        canvas.width / (maxX - minX),
+        canvas.height / (maxY - minY)
+    );
+
+    offsetX = -minX;
+    offsetY = -minY;
+}
+
+// map coords → pixel coords
+function mapToPixel(x, y) {
+    const px = (x + offsetX) * scale;
+    const py = canvas.height - (y + offsetY) * scale;
+    return {x: Math.round(px), y: Math.round(py)};
+}
+
+// ------------------------------
+// DRAW ROADS + PATH + MARKERS
+// ------------------------------
+function drawRoads() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle = "#44aaff";
+    ctx.lineWidth = 1;
+
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        ctx.beginPath();
+        coords.forEach(([x,y], i) => {
+            const p = mapToPixel(x,y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+    });
+
+    // raster (white roads)
+    rCtx.clearRect(0,0,rCanvas.width,rCanvas.height);
+    rCtx.fillStyle = "#000";
+    rCtx.fillRect(0,0,rCanvas.height,rCanvas.height);
+
+    rCtx.strokeStyle = "#ffffff";
+    rCtx.lineWidth = 2;
+    geojson.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        rCtx.beginPath();
+        coords.forEach(([x,y], i) => {
+            const p = mapToPixel(x,y);
+            if (i === 0) rCtx.moveTo(p.x, p.y);
+            else rCtx.lineTo(p.x, p.y);
+        });
+        rCtx.stroke();
+    });
+
+    // draw solved path instantly
+    if (solvedPixels.length > 0) {
+        ctx.strokeStyle = "yellow";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        solvedPixels.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+    }
+
+    if (startPix) drawMarker(startPix.x, startPix.y, "lime");
+    if (targetPix) drawMarker(targetPix.x, targetPix.y, "red");
+}
+
+function drawMarker(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI*2);
+    ctx.fill();
+}
+
+// ------------------------------
+// CLICK → SNAP TO NEAREST ROAD PIXEL
+// ------------------------------
+function findNearestRoadPixel(px, py, radius = 6) {
+    const w = rCanvas.width;
+    const h = rCanvas.height;
+    const img = rCtx.getImageData(0,0,w,h);
+    const data = img.data;
+
+    function isRoad(x,y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const idx = (y*w + x)*4;
+        return data[idx] > 200 && data[idx+1] > 200 && data[idx+2] > 200;
+    }
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            const nx = px + dx;
+            const ny = py + dy;
+            if (!isRoad(nx, ny)) continue;
+
+            const d = dx*dx + dy*dy;
+            if (d < bestDist) {
+                bestDist = d;
+                best = {x: nx, y: ny};
+            }
+        }
+    }
+
+    return best;
+}
+
+canvas.onclick = function(e) {
+    if (!geojson) return;
+
+    const rect = canvas.getBoundingClientRect();
+    let px = Math.round(e.clientX - rect.left);
+    let py = Math.round(e.clientY - rect.top);
+
+    // SNAP CLICK TO NEAREST ROAD PIXEL
+    const snapped = findNearestRoadPixel(px, py, 6);
+    if (snapped) {
+        px = snapped.x;
+        py = snapped.y;
+    }
+
+    if (!startPix) {
+        startPix = {x: px, y: py};
+        targetPix = null;
+        solvedPixels = [];
+    } else if (!targetPix) {
+        targetPix = {x: px, y: py};
+        solvedPixels = solvePixelPath(startPix, targetPix);
+
+        // compute steps + distance
+        const info = computePathInfo(solvedPixels);
+
+        const pxDist = computePixelDistance(solvedPixels);
+        const meters = pixelsToMeters(pxDist);
+        const turns = computeTurnCount(solvedPixels);
+        const timeSec = computeTravelTimeMeters(meters);
+        const complexity = computeComplexity(turns, meters);
+
+        document.getElementById("info").innerHTML =
+            "Steps: " + solvedPixels.length +
+            " &nbsp; | &nbsp; Distance: " + meters.toFixed(1) + " m" +
+            " &nbsp; | &nbsp; Turns: " + turns +
+            " &nbsp; | &nbsp; Time: " + (timeSec/60).toFixed(1) + " min" +
+            " &nbsp; | &nbsp; Complexity: " + complexity.toFixed(1);
+
+        const instructions = generateTurnByTurn(solvedPixels);
+        let html = "";
+        instructions.forEach((step, i) => {
+            html += (i+1) + ". " + step.type +
+                    " toward " + step.direction +
+                    " for " + pxToMeters(step.distance).toFixed(1) + " m"
+                    + "<br>";
+        });
+
+        document.getElementById("turns").innerHTML = html;
+        const totals = groupAndSumByDirection(instructions);
+
+        let totalHtml = "<h3>Direction Totals</h3>";
+
+        for (const dir in totals) {
+            if (totals[dir] > 0) {
+                totalHtml += dir + ": " + totals[dir].toFixed(1) + " m<br>";
+            }
+        }
+
+        document.getElementById("groups").innerHTML = totalHtml;
+        drawCompassRose(totals);
+
+
+    } else {
+        startPix = {x: px, y: py};
+        targetPix = null;
+        solvedPixels = [];
+    }
+
+    drawRoads();
+};
+
+// ------------------------------
+// PIXEL-BASED BFS SOLVER
+// ------------------------------
+function solvePixelPath(start, target) {
+    const w = rCanvas.width;
+    const h = rCanvas.height;
+    const img = rCtx.getImageData(0,0,w,h);
+    const data = img.data;
+
+    function isRoad(x,y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const idx = (y*w + x)*4;
+        return data[idx] > 200 && data[idx+1] > 200 && data[idx+2] > 200;
+    }
+
+    const sx = start.x, sy = start.y;
+    const tx = target.x, ty = target.y;
+
+    if (!isRoad(sx,sy) || !isRoad(tx,ty)) return [];
+
+    const visited = new Uint8Array(w*h);
+    const prev = new Int32Array(w*h);
+    prev.fill(-1);
+
+    const qx = new Int32Array(w*h);
+    const qy = new Int32Array(w*h);
+    let qh = 0, qt = 0;
+
+    function push(x,y) {
+        const idx = y*w + x;
+        visited[idx] = 1;
+        qx[qt] = x;
+        qy[qt] = y;
+        qt++;
+    }
+
+    push(sx,sy);
+
+    const dirs = [
+        [1,0],[-1,0],[0,1],[0,-1]
+    ];
+
+    let found = false;
+    while (qh < qt) {
+        const x = qx[qh];
+        const y = qy[qh];
+        qh++;
+
+        if (x === tx && y === ty) {
+            found = true;
+            break;
+        }
+
+        for (const [dx,dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const idx = ny*w + nx;
+            if (visited[idx]) continue;
+            if (!isRoad(nx,ny)) continue;
+            visited[idx] = 1;
+            prev[idx] = y*w + x;
+            qx[qt] = nx;
+            qy[qt] = ny;
+            qt++;
+        }
+    }
+
+    if (!found) return [];
+
+    // reconstruct path
+    const path = [];
+    let idx = ty*w + tx;
+    while (idx !== -1) {
+        const x = idx % w;
+        const y = (idx / w) | 0;
+        path.push({x,y});
+        idx = prev[idx];
+    }
+    path.reverse();
+    return path;
+}
+</script>
+
+</body>
+</html>

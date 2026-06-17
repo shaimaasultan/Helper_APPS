@@ -1,0 +1,465 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\geometry{margin=1in}
+
+\title{Pixel- and Image-Based Pathfinding Algorithms:\\
+Design, Pseudocode, and Incremental Enhancements}
+\author{Shaimaa Said Soltan}
+\date{June 1, 2026}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\section{Introduction}
+
+This document describes a family of pathfinding and traversal algorithms
+designed for road networks and maze-like images, all implemented in a
+pixel- or grid-based setting. Each section presents:
+\begin{itemize}
+  \item The core idea of the algorithm.
+  \item Detailed pseudocode.
+  \item Enhancements and how it advances beyond previous variants.
+\end{itemize}
+
+We assume a 2D discrete domain (image or rasterized road network) with
+width $W$ and height $H$, indexed by integer coordinates
+$(x,y)$, $0 \le x < W$, $0 \le y < H$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Pixel-Based Maze Solver}
+\label{sec:pixel_maze}
+
+\subsection{Concept}
+
+The pixel-based maze solver treats the rasterized road network (or maze)
+as a binary image: \emph{road} pixels (white) and \emph{non-road} pixels
+(black). A standard breadth-first search (BFS) is performed on the
+4-neighborhood (up, down, left, right) of each pixel to find a shortest
+path between a start pixel $s$ and a target pixel $t$.
+
+\subsection{Pseudocode}
+
+We assume a function \texttt{isRoad(x,y)} that returns \texttt{true} if
+pixel $(x,y)$ is a valid road pixel.
+
+\begin{algorithm}[h!]
+\caption{Pixel-Based Maze Solver (4-Connected BFS)}
+\begin{algorithmic}[1]
+\Require Start pixel $s = (s_x,s_y)$, target pixel $t = (t_x,t_y)$
+\Require Image dimensions $W,H$
+\Ensure Path $P$ as a sequence of pixels from $s$ to $t$, or empty if none
+
+\State Initialize \texttt{visited[0..W*H-1]} to \texttt{false}
+\State Initialize \texttt{prev[0..W*H-1]} to \texttt{-1}
+\State Initialize queue $Q$ as empty
+
+\State $idx_s \gets s_y \cdot W + s_x$
+\State \texttt{visited[$idx_s$]} $\gets$ \texttt{true}
+\State Enqueue $s$ into $Q$
+
+\State Define neighbor offsets:
+\State \hspace{1em} $\Delta = \{(1,0),(-1,0),(0,1),(0,-1)\}$
+
+\State $found \gets false$
+
+\While{$Q$ is not empty}
+  \State $(x,y) \gets$ Dequeue from $Q$
+  \If{$(x,y) = (t_x,t_y)$}
+    \State $found \gets true$
+    \State \textbf{break}
+  \EndIf
+  \ForAll{$(dx,dy) \in \Delta$}
+    \State $nx \gets x + dx$, $ny \gets y + dy$
+    \If{$0 \le nx < W$ and $0 \le ny < H$}
+      \State $idx \gets ny \cdot W + nx$
+      \If{\texttt{visited[$idx$]} = \texttt{false} and \texttt{isRoad(nx,ny)}}
+        \State \texttt{visited[$idx$]} $\gets$ \texttt{true}
+        \State \texttt{prev[$idx$]} $\gets y \cdot W + x$
+        \State Enqueue $(nx,ny)$ into $Q$
+      \EndIf
+    \EndIf
+  \EndFor
+\EndWhile
+
+\If{\textbf{not} $found$}
+  \State \textbf{return} empty path
+\EndIf
+
+\State // Reconstruct path
+\State $P \gets$ empty list
+\State $idx \gets t_y \cdot W + t_x$
+\While{$idx \neq -1$}
+  \State $x \gets idx \bmod W$
+  \State $y \gets \lfloor idx / W \rfloor$
+  \State Prepend $(x,y)$ to $P$
+  \State $idx \gets \texttt{prev}[idx]$
+\EndWhile
+
+\State \textbf{return} $P$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} Using a rasterized representation of roads
+  allows direct BFS on pixels, avoiding explicit graph construction.
+  \item \textbf{Advancement:} This algorithm is the baseline for all
+  subsequent methods. Later algorithms extend it with more directions,
+  different neighbor models, or additional constraints (e.g., longest
+  path, directional bias).
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Longest-White-Path Solver}
+\label{sec:longest_white}
+
+\subsection{Concept}
+
+Instead of finding the \emph{shortest} path between two points, the
+longest-white-path solver aims to find a path that maximizes the number
+of white (road) pixels visited, subject to connectivity constraints.
+This is generally a hard problem (longest path in a graph is NP-hard),
+so we use a heuristic or constrained variant.
+
+A simple variant: perform a BFS/DFS from a start pixel and track the
+longest simple path discovered under a depth or time limit.
+
+\subsection{Pseudocode (Heuristic DFS-Based Longest Path)}
+
+\begin{algorithm}[h!]
+\caption{Heuristic Longest-White-Path Solver}
+\begin{algorithmic}[1]
+\Require Start pixel $s = (s_x,s_y)$
+\Require Image dimensions $W,H$
+\Ensure A long (not necessarily optimal) path $P$
+
+\State $bestPath \gets$ empty list
+
+\State Define neighbor offsets:
+\State \hspace{1em} $\Delta = \{(1,0),(-1,0),(0,1),(0,-1)\}$
+
+\State Initialize \texttt{visited[0..W*H-1]} to \texttt{false}
+
+\Function{DFS}{$x,y,currentPath$}
+    \State Append (x,y) to currentPath
+    \State $idx \gets y \cdot W + x$
+    \State visited[idx] $\gets$ true
+
+  \If{$|currentPath| > |bestPath|$}
+    \State $bestPath \gets currentPath$
+  \EndIf
+
+  \ForAll{$(dx,dy) \in \Delta$}
+    \State $nx \gets x + dx$, $ny \gets y + dy$
+    \If{$0 \le nx < W$ and $0 \le ny < H$}
+      \State $nidx \gets ny \cdot W + nx$
+      \If{\texttt{visited[$nidx$]} = \texttt{false} and \texttt{isRoad(nx,ny)}}
+        \State DFS($nx,ny$, $currentPath$)
+      \EndIf
+    \EndIf
+  \EndFor
+
+  \State \texttt{visited[$idx$]} $\gets$ \texttt{false}
+  \State Remove last element from $currentPath$
+\EndFunction
+
+\State DFS($s_x,s_y$, empty list)
+\State \textbf{return} $bestPath$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} Instead of minimizing path length, this
+  solver explores the space of simple paths to maximize coverage of
+  white pixels.
+  \item \textbf{Advancement:} This algorithm extends the pixel-based
+  maze solver by changing the objective from shortest path to longest
+  path, illustrating how the same underlying grid representation can
+  support different optimization goals.
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{16-Direction BFS Solver}
+\label{sec:16_dir_bfs}
+
+\subsection{Concept}
+
+The 4-connected BFS only allows moves in cardinal directions. The
+16-direction BFS solver extends the neighbor set to include diagonals
+and additional intermediate directions, approximating a more continuous
+movement model and reducing path jaggedness.
+
+We define a set of 16 direction vectors $(dx_i,dy_i)$, each representing
+a possible step.
+
+\subsection{Pseudocode}
+
+\begin{algorithm}[h!]
+\caption{16-Direction BFS Solver}
+\begin{algorithmic}[1]
+\Require Start pixel $s$, target pixel $t$, image dimensions $W,H$
+\Ensure Shortest path in terms of number of steps (in 16-connected grid)
+
+\State Initialize \texttt{visited}, \texttt{prev}, and queue $Q$ as in
+Section~\ref{sec:pixel_maze}.
+
+\State Define 16-direction neighbor offsets:
+\State \hspace{1em} $\Delta \gets \{(1,0),(-1,0),(0,1),(0,-1),$
+\State \hspace{4em} $(1,1),(1,-1),(-1,1),(-1,-1),$
+\State \hspace{4em} $(2,1),(2,-1),(-2,1),(-2,-1),$
+\State \hspace{4em} $(1,2),(1,-2),(-1,2),(-1,-2)\}$
+
+\State Run BFS exactly as in Algorithm~1, but using $\Delta$ above.
+
+\State Reconstruct path using \texttt{prev} as before.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} The neighbor set is expanded from 4 to 16
+  directions, allowing more natural diagonal and shallow-angle moves.
+  \item \textbf{Advancement:} Compared to the pixel-based maze solver,
+  this algorithm produces smoother, less Manhattan-like paths and better
+  approximates Euclidean shortest paths on the raster.
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Grid-Based Neighbor Solver}
+\label{sec:grid_neighbor}
+
+\subsection{Concept}
+
+The grid-based neighbor solver abstracts the image into a coarser grid
+(e.g., superpixels or tiles). Each cell in the coarse grid represents a
+block of pixels, and neighbors are defined at the cell level. This
+reduces the search space and can accelerate pathfinding on large images.
+
+\subsection{Pseudocode}
+
+Assume we partition the image into cells of size $k \times k$ pixels.
+Let $(i,j)$ index cells, with $0 \le i < W_c$, $0 \le j < H_c$.
+
+\begin{algorithm}[h!]
+\caption{Grid-Based Neighbor Solver}
+\begin{algorithmic}[1]
+\Require Coarse grid dimensions $W_c,H_c$, cell size $k$
+\Require Start cell $S_c$, target cell $T_c$
+\Ensure Path as a sequence of cells (optionally refined to pixels)
+
+\State Define \texttt{cellIsRoad(i,j)} = \texttt{true} if the cell
+contains at least one road pixel.
+
+\State Initialize \texttt{visited[0..W$_c$H$_c$-1]} and
+\texttt{prev[0..W$_c$H$_c$-1]} as before.
+
+\State Define neighbor offsets on the coarse grid:
+\State \hspace{1em} $\Delta_c = \{(1,0),(-1,0),(0,1),(0,-1)\}$
+
+\State Run BFS on cells $(i,j)$ using \texttt{cellIsRoad} and $\Delta_c$.
+
+\State Reconstruct cell-level path $P_c$ from $S_c$ to $T_c$.
+
+\State Optionally, for each consecutive pair of cells in $P_c$, refine
+to a pixel-level path inside the union of the two cells using a local
+pixel-based BFS.
+
+\State \textbf{return} refined path.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} Coarse grid representation reduces the
+  state space, improving performance on large maps.
+  \item \textbf{Advancement:} This algorithm generalizes the pixel-based
+  solver by introducing a multi-resolution view: global routing on a
+  coarse grid, local refinement on pixels.
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Image-Based Traversal Solver}
+\label{sec:image_traversal}
+
+\subsection{Concept}
+
+The image-based traversal solver treats the entire image as a weighted
+graph, where each pixel has a traversal cost derived from image
+properties (e.g., brightness, color, road thickness). Instead of a
+binary \texttt{isRoad}, we use a cost function $c(x,y)$ and run a
+Dijkstra-like algorithm or weighted BFS.
+
+\subsection{Pseudocode (Dijkstra on Image)}
+
+\begin{algorithm}[h!]
+\caption{Image-Based Traversal Solver (Dijkstra)}
+\begin{algorithmic}[1]
+\Require Start pixel $s$, target pixel $t$, cost function $c(x,y)$
+\Ensure Minimum-cost path from $s$ to $t$
+
+\State Initialize distance array \texttt{dist[0..W*H-1]} to $+\infty$
+\State Initialize \texttt{prev[0..W*H-1]} to \texttt{-1}
+\State Use a priority queue $PQ$ keyed by distance
+
+\State $idx_s \gets s_y \cdot W + s_x$
+\State \texttt{dist[$idx_s$]} $\gets 0$
+\State Insert $(0, s_x, s_y)$ into $PQ$
+
+\State Define neighbor offsets (4 or 8 directions):
+\State \hspace{1em} $\Delta = \{(1,0),(-1,0),(0,1),(0,-1)\}$
+
+\While{$PQ$ not empty}
+  \State Extract $(d,x,y)$ with minimal $d$ from $PQ$
+  \State $idx \gets y \cdot W + x$
+  \If{$d > \texttt{dist}[idx]$}
+    \State \textbf{continue}
+  \EndIf
+  \If{$(x,y) = t$}
+    \State \textbf{break}
+  \EndIf
+  \ForAll{$(dx,dy) \in \Delta$}
+    \State $nx \gets x + dx$, $ny \gets y + dy$
+    \If{$0 \le nx < W$ and $0 \le ny < H$}
+      \State $nidx \gets ny \cdot W + nx$
+      \State $w \gets c(nx,ny)$
+      \If{\texttt{dist[$idx$]} + $w < \texttt{dist[$nidx$]}$}
+        \State \texttt{dist[$nidx$]} $\gets \texttt{dist[$idx$]} + w$
+        \State \texttt{prev[$nidx$]} $\gets idx$
+        \State Insert $(\texttt{dist[$nidx$]}, nx, ny)$ into $PQ$
+      \EndIf
+    \EndIf
+  \EndFor
+\EndWhile
+
+\State Reconstruct path from $t$ using \texttt{prev} as before.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} Introduces a cost function over pixels,
+  allowing preference for thicker roads, brighter pixels, or specific
+  classes of terrain.
+  \item \textbf{Advancement:} Generalizes unweighted BFS to weighted
+  shortest paths, enabling more realistic routing that accounts for
+  road quality, width, or other image-derived attributes.
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Left/Right/Up/Down Directional Solver}
+\label{sec:lrud_solver}
+
+\subsection{Concept}
+
+The left/right/up/down directional solver is a constrained BFS that
+only allows moves in the four cardinal directions, but can incorporate
+directional penalties or preferences. For example, it can penalize
+frequent turns or prefer forward motion, which is useful for generating
+turn-minimizing routes.
+
+\subsection{Pseudocode (BFS with Direction State)}
+
+We augment the state with the current direction $dir \in \{L,R,U,D\}$.
+
+\begin{algorithm}[h!]
+\caption{Directional BFS with Turn Penalty}
+\begin{algorithmic}[1]
+\Require Start pixel $s$, target pixel $t$
+\Ensure Path that balances distance and turn minimization
+
+\State Directions:
+\State \hspace{1em} $D = \{(1,0):R, (-1,0):L, (0,1):D, (0,-1):U\}$
+
+\State For each pixel index $idx$ and direction $d$, maintain
+\texttt{dist[idx][d]} (cost) and \texttt{prev[idx][d]}.
+
+\State Initialize all \texttt{dist} to $+\infty$, \texttt{prev} to
+\texttt{null}.
+
+\State Use a priority queue $PQ$ over states $(cost,x,y,dir)$.
+
+\State For all initial directions $d \in \{L,R,U,D\}$:
+\State \hspace{1em} $idx_s \gets s_y \cdot W + s_x$
+\State \hspace{1em} \texttt{dist[$idx_s$][d]} $\gets 0$
+\State \hspace{1em} Insert $(0,s_x,s_y,d)$ into $PQ$
+
+\State Turn penalty $\lambda > 0$.
+
+\While{$PQ$ not empty}
+  \State Extract $(c,x,y,dir)$ with minimal $c$
+  \State $idx \gets y \cdot W + x$
+  \If{$(x,y) = t$}
+    \State \textbf{break}
+  \EndIf
+  \ForAll{$(dx,dy,dir2) \in D$}
+    \State $nx \gets x + dx$, $ny \gets y + dy$
+    \If{$0 \le nx < W$ and $0 \le ny < H$ and \texttt{isRoad(nx,ny)}}
+      \State $nidx \gets ny \cdot W + nx$
+      \State $turnCost \gets 0$ if $dir2 = dir$ else $\lambda$
+      \State $newCost \gets c + 1 + turnCost$
+      \If{$newCost < \texttt{dist[$nidx$][dir2]}$}
+        \State \texttt{dist[$nidx$][dir2]} $\gets newCost$
+        \State \texttt{prev[$nidx$][dir2]} $\gets (idx,dir)$
+        \State Insert $(newCost,nx,ny,dir2)$ into $PQ$
+      \EndIf
+    \EndIf
+  \EndFor
+\EndWhile
+
+\State Choose the best direction $d^\ast$ at $t$ with minimal
+\texttt{dist[$idx_t$][d]} and reconstruct the path using \texttt{prev}.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Enhancements and Advancement}
+
+\begin{itemize}
+  \item \textbf{Enhancement:} Incorporates direction as part of the
+  state and penalizes turns, allowing control over route smoothness and
+  turn count.
+  \item \textbf{Advancement:} Extends the basic 4-connected BFS by
+  embedding directional preferences, bridging the gap between pure
+  shortest-path routing and navigation-style routing that cares about
+  turn minimization.
+\end{itemize}
+\clearpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Overall Progression and Enhancements}
+
+The algorithms form a progression:
+\begin{enumerate}
+  \item \textbf{Pixel-based maze solver:} Baseline unweighted BFS on a
+  binary road image.
+  \item \textbf{Longest-white-path solver:} Changes the objective from
+  shortest to longest path, exploring coverage.
+  \item \textbf{16-direction BFS solver:} Increases directional
+  resolution, producing smoother paths.
+  \item \textbf{Grid-based neighbor solver:} Introduces multi-resolution
+  routing for scalability.
+  \item \textbf{Image-based traversal solver:} Generalizes to weighted
+  costs derived from image properties.
+  \item \textbf{Left/right/up/down directional solver:} Adds direction
+  to the state and penalizes turns, aligning with navigation semantics.
+\end{enumerate}
+
+Each step adds either:
+\begin{itemize}
+  \item A richer objective (longest path, turn minimization),
+  \item A richer state (direction, cost),
+  \item Or a richer representation (multi-resolution grid, weighted
+  image).
+\end{itemize}
+
+\end{document}
