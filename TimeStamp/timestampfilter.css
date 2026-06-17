@@ -1,0 +1,42 @@
+body {
+  font-family: sans-serif;
+  margin: 2em;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 1em;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+input[type="datetime-local"], input[type="text"] {
+  margin: 0.5em;
+}
+#spinner {
+  display: none;
+  margin-top: 1em;
+  font-weight: bold;
+  color: #0078D7;
+}
+.loader {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0078D7;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+#status {
+  margin-top: 1em;
+  font-weight: bold;
+}

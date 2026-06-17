@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Timestamp Range Filter</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="timestampfilter.css">
+</head>
+<body>
+  <h2>📁 Filter Files Between Two Timestamps</h2>
+
+  <input type="file" id="folderInput" webkitdirectory directory multiple>
+  <br>
+  <label>From:</label>
+  <input type="datetime-local" id="fromTimestamp">
+  <label>To:</label>
+  <input type="datetime-local" id="toTimestamp">
+  <button onclick="filterFiles()">Filter</button>
+
+  <div id="spinner"><span class="loader"></span>Working...</div>
+  <div id="status"></div>
+
+  <table id="resultsTable">
+    <thead>
+  <tr>
+    <th onclick="sortTable(0)">Filename</th>
+    <th onclick="sortTable(1)">Last Modified</th>
+    <th onclick="sortTable(2)">Size (KB)</th>
+    <th onclick="sortTable(3)">Type</th>
+    <th onclick="sortTable(4)">Full Path</th>
+  </tr>
+  <tr>
+    <th><input type="text" onkeyup="searchTable(0)" placeholder="Search filename"></th>
+    <th><input type="text" onkeyup="searchTable(1)" placeholder="Search date"></th>
+    <th><input type="text" onkeyup="searchTable(2)" placeholder="Search size"></th>
+    <th><input type="text" onkeyup="searchTable(3)" placeholder="Search type"></th>
+    <th><input type="text" onkeyup="searchTable(4)" placeholder="Search path"></th>
+  </tr>
+</thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="timestampfilter.js"></script>
+</body>
+</html>
