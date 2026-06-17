@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AISL OS — Paper Library</title>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--card:#1e2530;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;
+  --blue:#58a6ff;--green:#3fb950;--red:#f85149;--amber:#d29922;--purple:#bc8cff;
+  --sidebar-w:234px;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif}
+
+/* ══ LIBRARY VIEW ══════════════════════════════════════════════════════════ */
+#libraryView{position:fixed;inset:0;display:flex;flex-direction:column;transition:opacity .2s}
+#libraryView.hidden{opacity:0;pointer-events:none}
+
+/* Header */
+.hub-header{background:var(--surface);border-bottom:1px solid var(--border);
+  height:52px;display:flex;align-items:center;padding:0 18px;gap:12px;flex-shrink:0;z-index:20}
+.logo{font-size:17px;font-weight:700;color:var(--blue);letter-spacing:-.4px;
+  white-space:nowrap;display:flex;align-items:center;gap:7px}
+.logo-sub{color:var(--muted);font-weight:400;font-size:12px}
+.search-wrap{flex:1;max-width:380px;margin:0 auto}
+.search-wrap input{width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);padding:7px 12px 7px 32px;border-radius:6px;font-size:13px;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.44 1.979A5.5 5.5 0 1 1 8 2.5a5.5 5.5 0 0 1-3.698 9.823'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:10px center}
+.search-wrap input:focus{border-color:var(--blue)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:7px}
+.badge{background:var(--card);border:1px solid var(--border);color:var(--muted);
+  font-size:11px;padding:3px 9px;border-radius:20px}
+.btn-sm{background:var(--blue);color:#fff;border:none;padding:6px 13px;border-radius:6px;
+  font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.btn-sm:hover{background:#79b8ff}
+.btn-sm.ghost{background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.btn-sm.ghost:hover{border-color:var(--blue);color:var(--blue);background:var(--card)}
+
+/* Body */
+.hub-body{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{padding:14px 12px 6px;flex-shrink:0}
+.sidebar-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.08em;padding:0 6px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.sidebar-label .lbl-badge{background:var(--bg);border:1px solid var(--border);
+  color:var(--muted);font-size:9px;padding:1px 6px;border-radius:8px;font-weight:400}
+.sidebar-divider{height:1px;background:var(--border);margin:6px 12px}
+
+/* Group items */
+.group-list{display:flex;flex-direction:column;gap:2px;padding:0 12px;overflow-y:auto;max-height:300px}
+.group-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;
+  cursor:pointer;font-size:12px;color:var(--muted);transition:all .12s;user-select:none;position:relative;border:1px solid transparent}
+.group-item:hover{background:var(--card);color:var(--text)}
+.group-item.active{background:var(--card);border-color:var(--border);color:var(--text)}
+.group-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.group-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-count{font-size:10px;background:var(--bg);border:1px solid var(--border);
+  color:var(--muted);padding:1px 6px;border-radius:8px;flex-shrink:0}
+.group-del{position:absolute;right:6px;background:transparent;border:none;color:var(--muted);
+  cursor:pointer;font-size:11px;opacity:0;transition:opacity .12s;line-height:1;padding:2px 3px}
+.group-item:hover .group-del{opacity:1}
+.group-del:hover{color:var(--red)}
+.group-rename{background:var(--bg);border:1px solid var(--blue);color:var(--text);
+  font-size:12px;border-radius:4px;padding:2px 6px;width:100%;outline:none;font-family:inherit}
+
+/* Recent */
+.recent-scroll{flex:1;overflow-y:auto;padding:0 12px 8px}
+.recent-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;
+  cursor:pointer;font-size:12px;color:var(--muted);transition:all .12s}
+.recent-item:hover{background:var(--card);color:var(--text)}
+.recent-icon{font-size:14px;flex-shrink:0}
+.recent-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.recent-empty{font-size:12px;color:var(--muted);font-style:italic;padding:6px 10px}
+
+/* Sidebar footer */
+.sidebar-footer{padding:12px;flex-shrink:0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.btn-add-folder{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:transparent;border:1px dashed var(--border);color:var(--muted);
+  padding:9px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s}
+.btn-add-folder:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── MAIN ── */
+.hub-main{flex:1;overflow-y:auto;padding:20px 22px}
+.main-header{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.main-title{font-size:14px;font-weight:600;color:var(--text)}
+.main-count{font-size:11px;color:var(--muted);margin-left:8px}
+.main-controls{display:flex;align-items:center;gap:6px}
+select.ctrl-select{background:var(--card);border:1px solid var(--border);color:var(--muted);
+  padding:5px 10px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
+.view-toggles{display:flex;gap:3px}
+.view-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);
+  padding:5px 9px;border-radius:5px;cursor:pointer;font-size:13px;transition:all .12s}
+.view-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ── FILE GRID ── */
+.file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.file-grid.list{grid-template-columns:1fr}
+
+/* ── FILE CARD ── */
+.file-card{background:var(--card);border:1px solid var(--border);border-radius:9px;
+  padding:16px 15px 13px;cursor:pointer;position:relative;overflow:hidden;
+  transition:border-color .15s,transform .12s,box-shadow .15s;display:flex;flex-direction:column}
+.file-card::before{content:'';position:absolute;top:0;left:0;width:3px;
+  height:100%;background:var(--gc,var(--blue))}
+.file-card:hover{border-color:var(--gc,var(--blue));transform:translateY(-2px);
+  box-shadow:0 5px 20px rgba(0,0,0,.3)}
+.fc-icon{font-size:22px;margin-bottom:8px;flex-shrink:0}
+.fc-name{font-size:12px;font-weight:600;color:var(--text);line-height:1.35;
+  margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+/* ★ Description line */
+.fc-desc{font-size:11px;color:var(--muted);line-height:1.45;flex:1;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;margin-bottom:10px;font-style:italic}
+.fc-desc.no-desc{opacity:.45}
+.fc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto}
+.fc-type{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.04em}
+.tp-pdf{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.25)}
+.tp-docx,.tp-doc{background:rgba(88,166,255,.15);color:var(--blue);border:1px solid rgba(88,166,255,.25)}
+.fc-size{font-size:10px;color:var(--muted)}
+.fc-group-dot{width:6px;height:6px;border-radius:50%;margin-left:auto;flex-shrink:0}
+.fc-del{position:absolute;top:8px;right:8px;background:transparent;border:none;
+  color:var(--muted);cursor:pointer;font-size:12px;opacity:0;transition:opacity .12s;line-height:1}
+.file-card:hover .fc-del{opacity:1}
+.fc-del:hover{color:var(--red)}
+
+/* List view overrides */
+.file-grid.list .file-card{flex-direction:row;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:7px;transform:none!important}
+.file-grid.list .file-card::before{border-radius:7px 0 0 7px}
+.file-grid.list .fc-icon{font-size:18px;margin-bottom:0;flex-shrink:0}
+.file-grid.list .fc-name{font-size:13px;-webkit-line-clamp:1;margin-bottom:0;flex:0 0 auto;max-width:260px}
+.file-grid.list .fc-desc{flex:1;margin-bottom:0;-webkit-line-clamp:1}
+.file-grid.list .fc-meta{margin-top:0;flex-shrink:0}
+
+/* Empty / no-results */
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 24px;
+  display:flex;flex-direction:column;align-items:center;gap:14px}
+.empty-icon{font-size:44px;opacity:.3}
+.empty-title{font-size:15px;font-weight:600;color:var(--muted)}
+.empty-sub{font-size:13px;color:var(--muted);opacity:.7;max-width:300px;line-height:1.6}
+.empty-btn{background:var(--blue);color:#fff;border:none;padding:10px 22px;
+  border-radius:7px;font-size:13px;font-weight:500;cursor:pointer}
+.empty-btn:hover{background:#79b8ff}
+.no-results{grid-column:1/-1;text-align:center;color:var(--muted);padding:48px;font-size:13px}
+
+/* ══ VIEWER VIEW ══════════════════════════════════════════════════════════ */
+#viewerView{position:fixed;inset:0;display:flex;flex-direction:column;transition:opacity .2s}
+#viewerView.hidden{opacity:0;pointer-events:none}
+
+.viewer-nav{background:var(--surface);border-bottom:1px solid var(--border);
+  height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;flex-shrink:0;z-index:20}
+.back-btn{display:flex;align-items:center;gap:6px;background:var(--card);
+  border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:500;
+  padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.back-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.vdivider{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.nav-trail{display:flex;align-items:center;gap:5px;font-size:12px;
+  color:var(--muted);overflow:hidden;flex:1;min-width:0}
+.nav-hub{color:var(--blue);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.nav-hub:hover{text-decoration:underline}
+.nav-sep{opacity:.4;flex-shrink:0}
+.nav-grp{white-space:nowrap;flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.nav-file{color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viewer-right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.nav-btn{background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
+  transition:all .15s;white-space:nowrap;text-decoration:none;display:flex;align-items:center;gap:4px}
+.nav-btn:hover{border-color:var(--text);color:var(--text)}
+.nav-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+.file-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.05em}
+
+#pdfFrame{flex:1;border:none;width:100%;display:none;background:#525659}
+#docxPanel{flex:1;display:none;overflow-y:auto;background:#f0f0f0}
+.docx-page{max-width:800px;margin:0 auto;padding:48px 60px;background:#fff;min-height:100%;
+  box-shadow:0 0 40px rgba(0,0,0,.12)}
+.docx-page *{color:#111!important;font-family:Georgia,serif}
+.docx-page h1,.docx-page h2,.docx-page h3{margin:1.1em 0 .4em;font-weight:700}
+.docx-page h1{font-size:1.7em}.docx-page h2{font-size:1.3em}.docx-page h3{font-size:1.1em}
+.docx-page p{margin:.55em 0;line-height:1.75;font-size:15px}
+.docx-page table{border-collapse:collapse;width:100%;margin:1em 0}
+.docx-page td,.docx-page th{border:1px solid #ccc;padding:5px 10px}
+.docx-page ul,.docx-page ol{margin:.5em 0 .5em 1.5em;line-height:1.7}
+.docx-page img{max-width:100%;height:auto;margin:1em 0}
+#vmPanel{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:40px}
+.vm-icon{font-size:44px}.vm-title{font-size:15px;font-weight:600}
+.vm-sub{font-size:13px;color:var(--muted);max-width:320px;line-height:1.6}
+.vm-btn{background:var(--blue);color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer}
+
+/* ══ ANALYSIS OVERLAY ══════════════════════════════════════════════════════ */
+#analysisOverlay{position:fixed;inset:0;background:rgba(13,17,23,.96);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:600;gap:18px;text-align:center;padding:32px}
+#analysisOverlay.active{display:flex}
+.an-emoji{font-size:40px}
+.an-title{font-size:17px;font-weight:600}
+.an-status{font-size:13px;color:var(--muted);min-height:20px}
+.an-prog-wrap{width:340px;height:5px;background:var(--card);border-radius:3px;overflow:hidden}
+.an-prog-bar{height:100%;background:var(--blue);border-radius:3px;transition:width .35s ease;width:0}
+.an-detail{font-size:11px;color:var(--muted);opacity:.7;min-height:16px}
+.an-file-list{font-size:11px;color:var(--muted);max-height:80px;overflow:hidden;
+  line-height:1.6;max-width:400px;opacity:.6}
+
+/* ══ MISC ═══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ LIBRARY VIEW ═══════════════════════ -->
+<div id="libraryView">
+  <div class="hub-header">
+    <div class="logo">⬡ <span style="color:var(--text)">AISL</span> OS
+      <span class="logo-sub">Paper Library</span></div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search papers…" oninput="renderGrid()">
+    </div>
+    <div class="header-right">
+      <span class="badge" id="totalBadge">0 files</span>
+      <button class="btn-sm ghost" id="reanalyzeBtn" onclick="reanalyze()" style="display:none">🔬 Re-analyze</button>
+      <button class="btn-sm" onclick="pickFolder()">📂 Add Folder</button>
+    </div>
+  </div>
+
+  <div class="hub-body">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Topic Groups
+          <span class="lbl-badge" id="groupCountBadge">0</span></div>
+      </div>
+      <div class="group-list" id="groupList">
+        <div class="group-item active" data-gid="all" onclick="setGroup('all',this)">
+          <span class="group-dot" style="background:var(--muted)"></span>
+          <span class="group-name">All Papers</span>
+          <span class="group-count" id="cnt-all">0</span>
+        </div>
+        <div class="group-item" data-gid="unread" onclick="setGroup('unread',this)">
+          <span class="group-dot" style="background:var(--amber)"></span>
+          <span class="group-name">📌 Unread</span>
+          <span class="group-count" id="cnt-unread">0</span>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section" style="padding-bottom:4px">
+        <div class="sidebar-label">Recently Opened</div>
+      </div>
+      <div class="recent-scroll">
+        <div id="recentList"><div class="recent-empty">No files opened yet</div></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="btn-add-folder" onclick="pickFolder()">📂 Add Folder</button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="hub-main">
+      <div class="main-header">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="main-title" id="gridLabel">All Papers</span>
+          <span class="main-count" id="gridCount"></span>
+        </div>
+        <div class="main-controls">
+          <select class="ctrl-select" id="sortSel" onchange="renderGrid()">
+            <option value="name">Sort: Name</option>
+            <option value="type">Sort: Type</option>
+            <option value="size">Sort: Size</option>
+            <option value="group">Sort: Group</option>
+            <option value="recent">Sort: Recent</option>
+          </select>
+          <div class="view-toggles">
+            <button class="view-btn active" id="btnGrid" onclick="setView('grid')" title="Grid">⊞</button>
+            <button class="view-btn" id="btnList" onclick="setView('list')" title="List">☰</button>
+          </div>
+        </div>
+      </div>
+      <div class="file-grid" id="fileGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ VIEWER VIEW ═══════════════════════ -->
+<div id="viewerView" class="hidden">
+  <div class="viewer-nav">
+    <button class="back-btn" onclick="closeViewer()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+      </svg>
+      Back to Library
+    </button>
+    <div class="vdivider"></div>
+    <div class="nav-trail">
+      <span class="nav-hub" onclick="closeViewer()">⬡ AISL OS</span>
+      <span class="nav-sep">›</span>
+      <span class="nav-grp" id="navGrp"></span>
+      <span class="nav-sep">›</span>
+      <span class="nav-file" id="navFile"></span>
+    </div>
+    <div class="viewer-right">
+      <span class="file-badge" id="navBadge"></span>
+      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">‹ Prev</button>
+      <button class="nav-btn" id="nextBtn" onclick="navigate(+1)">Next ›</button>
+      <button class="nav-btn" onclick="openNative()">↗ Open Native</button>
+    </div>
+  </div>
+  <iframe id="pdfFrame" src="about:blank"></iframe>
+  <div id="docxPanel"><div class="docx-page" id="docxContent"></div></div>
+  <div id="vmPanel">
+    <div class="vm-icon">📄</div>
+    <div class="vm-title" id="vmTitle">Cannot preview</div>
+    <div class="vm-sub" id="vmSub">Try opening with your system app.</div>
+    <button class="vm-btn" onclick="openNative()">Open with System App</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ ANALYSIS OVERLAY ═══════════════════ -->
+<div id="analysisOverlay">
+  <div class="an-emoji" id="anEmoji">🔬</div>
+  <div class="an-title" id="anTitle">Analyzing Papers…</div>
+  <div class="an-status" id="anStatus">Preparing…</div>
+  <div class="an-prog-wrap"><div class="an-prog-bar" id="anBar"></div></div>
+  <div class="an-detail" id="anDetail"></div>
+  <div class="an-file-list" id="anFileList"></div>
+</div>
+
+<script>
+// ─── PDF.js worker ───────────────────────────────────────────────────────────
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const GROUP_COLORS = [
+  '#58a6ff','#bc8cff','#3fb950','#d29922',
+  '#f0883e','#f85149','#39d353','#79c0ff','#a5f3fc','#fca5a5'
+];
+
+const STOP_WORDS = new Set([
+  'the','be','to','of','and','a','in','that','have','it','for','not','on','with',
+  'he','as','you','do','at','this','but','his','by','from','they','we','say','her',
+  'she','or','an','will','my','one','all','would','there','their','what','so','up',
+  'out','if','about','who','get','which','go','me','when','make','can','like','time',
+  'no','just','him','know','take','into','your','good','some','could','them','see',
+  'other','than','then','now','look','only','come','its','over','also','back','after',
+  'use','two','how','our','work','first','well','way','even','new','want','because',
+  'any','these','give','most','us','is','are','was','were','has','had','been','did',
+  'does','each','while','between','through','during','before','above','below','both',
+  'few','more','such','very','here','where','why','am','shall','should','may','might',
+  'must','could','those','those','being','having',
+  // academic stop words
+  'paper','study','using','based','results','result','method','approach','data',
+  'model','analysis','system','used','show','proposed','different','however','thus',
+  'shown','figure','table','section','number','function','set','problem','therefore',
+  'note','case','given','without','order','following','since','high','large','state',
+  'value','point','example','possible','form','type','simple','several','general',
+  'same','three','four','five','six','seven','eight','nine','ten','also','among',
+  'due','per','ie','eg','et','al','vs','pp','vol','doi','http','www','com','org',
+  'that','when','where','which','whose','whom','who','then','than','this','these',
+  'propose','present','shows','show','demonstrate','demonstrates','use','uses',
+  'introduce','describes','describe','evaluate','evaluates','compare','compares',
+  'provide','provides','achieve','achieves','improve','improves','reduce','reduces',
+  'increase','increases','apply','applies','consider','considers','define','defines',
+  'assume','assumes','measure','measures','observe','observes','test','tests',
+  'discuss','discusses','conclude','concludes','review','reviews','find','finds',
+  'report','reports','suggest','suggests','indicate','indicates','refer','refers',
+  'require','requires','include','includes','consist','consists','contain','contains',
+  'obtain','obtains','generate','generates','represent','represents','perform',
+  'performs','allow','allows','enable','enables','address','addresses',
+]);
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let files      = [];   // [{id, name, nameNoExt, ext, handle, size, gid, desc, keywords, read}]
+let groups     = [];   // [{id, name, color}]  — topic clusters
+let recentIds  = JSON.parse(localStorage.getItem('pl_recent') || '[]');
+let readIds    = JSON.parse(localStorage.getItem('pl_read')   || '[]');
+let activeGroup = 'all';
+let viewMode   = 'grid';
+let currentId  = null;
+let blobUrl    = null;
+let currentFileObj = null;
+
+function saveRecent(){ localStorage.setItem('pl_recent', JSON.stringify(recentIds)); }
+function saveRead()  { localStorage.setItem('pl_read',   JSON.stringify(readIds));   }
+function fmtSize(b){ return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB'; }
+function fileIcon(e){ return e==='pdf'?'📕':e==='docx'?'📘':'📗'; }
+
+// ─── PICK FOLDER ─────────────────────────────────────────────────────────────
+async function pickFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('Please use Microsoft Edge or Chrome — this page uses the File System Access API.');
+    return;
+  }
+  let dir;
+  try { dir = await window.showDirectoryPicker({mode:'read'}); }
+  catch(e){ if(e.name!=='AbortError') console.error(e); return; }
+
+  showAnalysis(true);
+  setAnProgress(0,'Scanning folder…','');
+  const found = [];
+  await collectFiles(dir, found, [dir.name]);
+
+  if (!found.length) {
+    hideAnalysis();
+    alert(`No PDF or Word files found in "${dir.name}".`);
+    return;
+  }
+
+  // Extract text + cluster
+  await analyzeFiles(found);
+}
+
+// ─── COLLECT FILES ────────────────────────────────────────────────────────────
+async function collectFiles(dir, out, pathParts) {
+  for await (const [name, h] of dir.entries()) {
+    if (h.kind === 'file') {
+      const ext = name.split('.').pop().toLowerCase();
+      if (['pdf','docx','doc'].includes(ext)) {
+        let f;
+        try { f = await h.getFile(); } catch(e){ continue; }
+        out.push({ name, ext, handle:h, size:f.size, path:[...pathParts,name].join(' › ') });
+      }
+    } else if (h.kind === 'directory') {
+      await collectFiles(h, out, [...pathParts, name]);
+    }
+  }
+}
+
+// ─── ANALYSIS PIPELINE ────────────────────────────────────────────────────────
+async function analyzeFiles(raw) {
+  const total = raw.length;
+  const texts = [];
+
+  // ── Step 1: extract text ──
+  for (let i = 0; i < total; i++) {
+    const r = raw[i];
+    setAnProgress((i / total) * 55,
+      `Extracting text… (${i+1}/${total})`,
+      r.name,
+      `Reading ${r.ext.toUpperCase()} — ${fmtSize(r.size)}`);
+    let txt = '';
+    try {
+      const file = await r.handle.getFile();
+      if (r.ext === 'pdf')          txt = await extractPDF(file);
+      else if (['docx','doc'].includes(r.ext)) txt = await extractDOCX(file);
+    } catch(e) { console.warn('extract failed', r.name, e); }
+    texts.push(txt);
+    await tick();
+  }
+
+  // ── Step 2: TF-IDF ──
+  setAnProgress(60,'Computing topic vectors…','');
+  await tick();
+  const tokens  = texts.map(tokenize);
+  const {vectors, vocab} = computeTFIDF(tokens);
+
+  // ── Step 3: cluster ──
+  setAnProgress(72,'Grouping by topic…','');
+  await tick();
+  const clusters = cluster(vectors, 0.12, total);
+
+  // ── Step 4: build groups + files ──
+  setAnProgress(88,'Building groups…','');
+  await tick();
+
+  const newGroups = [];
+  const newFiles  = [];
+
+  // Sort clusters by size descending
+  clusters.sort((a,b) => b.length - a.length);
+
+  clusters.forEach((idxArr, ci) => {
+    const gid   = 'g'+Date.now()+ci;
+    const color = GROUP_COLORS[newGroups.length % GROUP_COLORS.length];
+    // Pass raw filenames + raw texts as fallback tiers for naming
+    const gname = getGroupName(idxArr, vectors, tokens, raw);
+    newGroups.push({id:gid, name:gname, color});
+
+    idxArr.forEach(idx => {
+      const r   = raw[idx];
+      const vec = vectors[idx];
+      const txt = texts[idx];
+      const desc = getDescription(txt, vec, r.name);
+      const kws  = getTopKeywords(vec, 6);
+      newFiles.push({
+        id: 'f'+Date.now()+Math.random().toString(36).slice(2),
+        name: r.name,
+        nameNoExt: r.name.replace(/\.[^.]+$/,''),
+        ext: r.ext,
+        handle: r.handle,
+        size: r.size,
+        gid,
+        desc,
+        keywords: kws,
+        read: false,
+        path: r.path,
+      });
+    });
+  });
+
+  // Merge into existing state
+  groups = [...groups, ...newGroups];
+  files  = [...files,  ...newFiles];
+
+  // Clean up recent that no longer exist
+  recentIds = recentIds.filter(id => files.find(f=>f.id===id));
+
+  setAnProgress(100,'Done!','');
+  await new Promise(r=>setTimeout(r,400));
+  hideAnalysis();
+
+  document.getElementById('reanalyzeBtn').style.display = 'flex';
+  updateSidebar();
+  renderRecent();
+  renderGrid();
+}
+
+// ─── RE-ANALYZE ALL (rerun clustering on existing files) ─────────────────────
+async function reanalyze() {
+  if (!files.length) return;
+  if (!confirm('Re-analyze will re-cluster all loaded files and rebuild topic groups. Continue?')) return;
+
+  showAnalysis(true);
+  const raw = files.map(f => ({name:f.name, ext:f.ext, handle:f.handle, size:f.size, path:f.path}));
+  groups = [];
+  files  = [];
+  await analyzeFiles(raw);
+}
+
+// ─── TEXT EXTRACTION ─────────────────────────────────────────────────────────
+async function extractPDF(file) {
+  if (!window.pdfjsLib) return '';
+  const ab  = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: new Uint8Array(ab)}).promise;
+  const maxPages = Math.min(pdf.numPages, 8);
+  let out = '';
+  for (let p = 1; p <= maxPages; p++) {
+    const page = await pdf.getPage(p);
+    const ct   = await page.getTextContent();
+    out += ct.items.map(i=>i.str).join(' ') + '\n';
+    if (out.length > 8000) break;
+  }
+  return out.slice(0, 8000);
+}
+
+async function extractDOCX(file) {
+  if (!window.mammoth) return '';
+  const ab  = await file.arrayBuffer();
+  const res = await mammoth.extractRawText({arrayBuffer: ab});
+  return (res.value || '').slice(0, 8000);
+}
+
+// ─── NLP ──────────────────────────────────────────────────────────────────────
+function tokenize(text) {
+  return text.toLowerCase()
+    .replace(/https?:\/\/\S+/g,' ')
+    .replace(/[^a-z\s\-]/g,' ')
+    .split(/[\s\-]+/)
+    .filter(w => w.length > 3 && w.length < 22 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+}
+
+function computeTFIDF(docTokens) {
+  const N  = docTokens.length;
+  const df = {};
+  docTokens.forEach(toks => {
+    new Set(toks).forEach(t => { df[t] = (df[t]||0)+1; });
+  });
+  // Keep terms appearing in at least 1 doc (singletons need their own words for naming)
+  // but cap at 80% to exclude near-universal filler terms
+  const minDf = N <= 3 ? 1 : 2;  // for tiny corpora allow unique terms
+  const vocab = Object.keys(df).filter(t => df[t] >= minDf && df[t] <= Math.ceil(N*0.85));
+  const vectors = docTokens.map(toks => {
+    const tf = {};
+    toks.forEach(t => { tf[t] = (tf[t]||0)+1; });
+    const len = toks.length || 1;
+    const vec = {};
+    vocab.forEach(t => {
+      const score = (tf[t]||0)/len * Math.log((N+1)/(df[t]+0.5));
+      if (score > 0) vec[t] = score;
+    });
+    return vec;
+  });
+  return {vectors, vocab};
+}
+
+function cosSim(a, b) {
+  let dot=0, ma=0, mb=0;
+  const keys = new Set([...Object.keys(a),...Object.keys(b)]);
+  keys.forEach(k=>{ const x=a[k]||0,y=b[k]||0; dot+=x*y; ma+=x*x; mb+=y*y; });
+  return (ma&&mb) ? dot/Math.sqrt(ma*mb) : 0;
+}
+
+function cluster(vectors, threshold, n) {
+  if (n === 0) return [];
+  if (n === 1) return [[0]];
+
+  // Build similarity matrix, BFS connected components
+  const visited  = new Array(n).fill(false);
+  const clusters = [];
+
+  // Pre-compute top-sim neighbours (sparse)
+  const neighbours = vectors.map((v,i) => {
+    const sims = [];
+    for (let j=0; j<n; j++) {
+      if (i===j) continue;
+      const s = cosSim(v, vectors[j]);
+      if (s >= threshold) sims.push(j);
+    }
+    return sims;
+  });
+
+  for (let i=0; i<n; i++) {
+    if (visited[i]) continue;
+    const group = [i];
+    visited[i] = true;
+    const queue = [i];
+    while (queue.length) {
+      const cur = queue.shift();
+      neighbours[cur].forEach(j => {
+        if (!visited[j]) { visited[j]=true; group.push(j); queue.push(j); }
+      });
+    }
+    clusters.push(group);
+  }
+
+  // If too many solo clusters (> 40% of docs isolated), lower threshold
+  const isolated = clusters.filter(c=>c.length===1).length;
+  if (isolated > n*0.4 && threshold > 0.05) {
+    return cluster(vectors, threshold - 0.03, n);
+  }
+  return clusters;
+}
+
+function getGroupName(idxArr, vectors, rawTokens, rawFiles) {
+  // ── Tier 1: TF-IDF aggregate ──────────────────────────────────────────────
+  // Sum TF-IDF scores across all docs in this cluster
+  const agg = {};
+  idxArr.forEach(i => Object.entries(vectors[i]).forEach(([t,s]) => { agg[t]=(agg[t]||0)+s; }));
+  const tfidfKws = Object.entries(agg)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3)
+    .map(([t]) => capitalize(t));
+  if (tfidfKws.length >= 2) return tfidfKws.join(' · ');
+
+  // ── Tier 2: raw token frequency (when TF-IDF vector was empty/sparse) ─────
+  // Use the unfiltered token lists — these exist even for singletons with
+  // unique vocabulary that computeTFIDF may have silently dropped
+  const freq = {};
+  idxArr.forEach(i => (rawTokens[i]||[]).forEach(t => { freq[t]=(freq[t]||0)+1; }));
+  const freqKws = Object.entries(freq)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3)
+    .map(([t]) => capitalize(t));
+  if (freqKws.length >= 2) return freqKws.join(' · ');
+  if (freqKws.length === 1) {
+    // Supplement with filename keywords
+    const fnKws = filenameKeywords(idxArr.map(i=>rawFiles[i].name), 2);
+    const merged = [...new Set([freqKws[0], ...fnKws])].slice(0,3);
+    if (merged.length >= 1) return merged.map(capitalize).join(' · ');
+  }
+
+  // ── Tier 3: filename keywords only ────────────────────────────────────────
+  // Covers fully offline / empty-extraction cases
+  const fnKws = filenameKeywords(idxArr.map(i=>rawFiles[i].name), 3);
+  if (fnKws.length >= 1) return fnKws.map(capitalize).join(' · ');
+
+  // ── Final fallback (should almost never happen) ───────────────────────────
+  return 'Miscellaneous';
+}
+
+// Extract meaningful words from file names, stripping extension + common junk
+function filenameKeywords(names, n) {
+  const FILE_JUNK = new Set([
+    'final','draft','copy','version','revised','new','old','v1','v2','v3',
+    'chapter','section','part','page','pages','report','document','file',
+    'untitled','unnamed','noname','temp','backup','edit','edited','update',
+  ]);
+  const freq = {};
+  names.forEach(name => {
+    // Remove extension, split on separators, lowercase
+    const words = name.replace(/\.[^.]+$/,'')
+      .replace(/[_\-\.\(\)\[\]\d]+/g,' ')
+      .toLowerCase().split(/\s+/)
+      .filter(w => w.length > 3 && !STOP_WORDS.has(w) && !FILE_JUNK.has(w));
+    words.forEach(w => { freq[w]=(freq[w]||0)+1; });
+  });
+  return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([t])=>t);
+}
+
+function getTopKeywords(vec, n) {
+  return Object.entries(vec).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([t])=>t);
+}
+
+function getDescription(text, vec, filename='') {
+  // ── Tier 1: first real sentence from extracted text ──────────────────────
+  if (text && text.trim().length > 30) {
+    const sentences = text.replace(/\s+/g,' ').split(/(?<=[.!?])\s+/);
+    for (const s of sentences) {
+      const trimmed = s.trim();
+      if (trimmed.length > 40 && trimmed.length < 280 && /[a-zA-Z]{4}/.test(trimmed)) {
+        return trimmed.replace(/^[^a-zA-Z]+/,'');
+      }
+    }
+  }
+  // ── Tier 2: top TF-IDF keywords ─────────────────────────────────────────
+  const kws = getTopKeywords(vec, 7);
+  if (kws.length >= 3) return 'Topics: ' + kws.join(', ');
+
+  // ── Tier 3: filename-derived description ─────────────────────────────────
+  // Happens when text extraction fully failed (offline mammoth, locked PDF, etc.)
+  if (filename) {
+    const fnWords = filenameKeywords([filename], 6);
+    if (fnWords.length) return 'From filename: ' + fnWords.map(capitalize).join(', ');
+    // Last resort: clean filename itself
+    return filename.replace(/\.[^.]+$/,'').replace(/[_\-\.]+/g,' ').trim();
+  }
+  return '';
+}
+
+function capitalize(w){ return w.charAt(0).toUpperCase()+w.slice(1); }
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+function updateSidebar() {
+  const list    = document.getElementById('groupList');
+  const allCnt  = files.length;
+  const unread  = files.filter(f => !readIds.includes(f.id)).length;
+  document.getElementById('cnt-all').textContent    = allCnt;
+  document.getElementById('cnt-unread').textContent = unread;
+  document.getElementById('groupCountBadge').textContent = groups.length;
+
+  // Remove old topic groups
+  list.querySelectorAll('[data-gid]:not([data-gid="all"]):not([data-gid="unread"])').forEach(e=>e.remove());
+
+  groups.forEach(g => {
+    const cnt  = files.filter(f=>f.gid===g.id).length;
+    const item = document.createElement('div');
+    item.className  = 'group-item' + (activeGroup===g.id?' active':'');
+    item.dataset.gid = g.id;
+    item.innerHTML  = `
+      <span class="group-dot" style="background:${g.color}"></span>
+      <span class="group-name" title="${g.name}" ondblclick="startRename('${g.id}',this)">${g.name}</span>
+      <span class="group-count">${cnt}</span>
+      <button class="group-del" onclick="event.stopPropagation();removeGroup('${g.id}')" title="Remove">✕</button>`;
+    item.onclick = () => setGroup(g.id, item);
+    list.appendChild(item);
+  });
+
+  // Sync active highlight
+  list.querySelectorAll('.group-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.gid === activeGroup));
+
+  document.getElementById('totalBadge').textContent =
+    files.length + ' file' + (files.length!==1?'s':'');
+}
+
+function startRename(gid, el) {
+  const g = groups.find(x=>x.id===gid); if(!g) return;
+  const inp = document.createElement('input');
+  inp.className='group-rename'; inp.value=g.name;
+  el.replaceWith(inp); inp.focus(); inp.select();
+  const commit = () => { g.name=inp.value.trim()||g.name; updateSidebar(); };
+  inp.onblur = commit;
+  inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){inp.value=g.name;inp.blur();} };
+}
+
+function removeGroup(gid) {
+  if (!confirm('Remove this topic group and its files from the library?')) return;
+  groups    = groups.filter(g=>g.id!==gid);
+  files     = files.filter(f=>f.gid!==gid);
+  recentIds = recentIds.filter(id=>files.find(f=>f.id===id));
+  if (activeGroup===gid) activeGroup='all';
+  updateSidebar(); renderRecent(); renderGrid();
+}
+
+function setGroup(gid, el) {
+  activeGroup = gid;
+  document.querySelectorAll('.group-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+// ─── RECENT ───────────────────────────────────────────────────────────────────
+function renderRecent() {
+  const rl    = document.getElementById('recentList');
+  const items = recentIds.map(id=>files.find(f=>f.id===id)).filter(Boolean).slice(0,8);
+  rl.innerHTML = items.length
+    ? items.map(f=>`<div class="recent-item" onclick="openFile('${f.id}')">
+        <span class="recent-icon">${fileIcon(f.ext)}</span>
+        <span class="recent-name" title="${f.name}">${f.nameNoExt}</span></div>`).join('')
+    : '<div class="recent-empty">No files opened yet</div>';
+}
+
+// ─── RENDER GRID ─────────────────────────────────────────────────────────────
+function renderGrid() {
+  const q    = document.getElementById('searchInput').value.toLowerCase().trim();
+  const sort = document.getElementById('sortSel').value;
+
+  let visible = files.filter(f => {
+    if (activeGroup==='unread') return !readIds.includes(f.id);
+    if (activeGroup!=='all') return f.gid===activeGroup;
+    return true;
+  }).filter(f => !q || f.nameNoExt.toLowerCase().includes(q)
+                    || (f.desc||'').toLowerCase().includes(q)
+                    || (f.keywords||[]).some(k=>k.includes(q)));
+
+  if (sort==='name')   visible.sort((a,b)=>a.nameNoExt.localeCompare(b.nameNoExt));
+  if (sort==='type')   visible.sort((a,b)=>a.ext.localeCompare(b.ext));
+  if (sort==='size')   visible.sort((a,b)=>b.size-a.size);
+  if (sort==='group')  visible.sort((a,b)=>a.gid.localeCompare(b.gid));
+  if (sort==='recent') visible.sort((a,b)=>{
+    const ai=recentIds.indexOf(a.id),bi=recentIds.indexOf(b.id);
+    if(ai<0&&bi<0) return 0; if(ai<0) return 1; if(bi<0) return -1;
+    return ai-bi;
+  });
+
+  const grpMap = Object.fromEntries(groups.map(g=>[g.id,g]));
+  const gLabel = activeGroup==='all' ? 'All Papers'
+               : activeGroup==='unread' ? 'Unread'
+               : grpMap[activeGroup]?.name || 'Files';
+
+  document.getElementById('gridLabel').textContent  = gLabel;
+  document.getElementById('gridCount').textContent  = `— ${visible.length} file${visible.length!==1?'s':''}`;
+  updateSidebar();
+
+  const grid = document.getElementById('fileGrid');
+
+  if (!files.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <div class="empty-title">No papers loaded</div>
+        <div class="empty-sub">Click "Add Folder" to select a folder of PDFs or Word files.
+          The library will read and auto-group them by topic.</div>
+        <button class="empty-btn" onclick="pickFolder()">📂 Add Folder</button>
+      </div>`;
+    return;
+  }
+
+  if (!visible.length) {
+    grid.innerHTML='<div class="no-results">No papers match your search.</div>';
+    return;
+  }
+
+  grid.innerHTML = visible.map(f => {
+    const g     = grpMap[f.gid];
+    const color = g?.color || 'var(--blue)';
+    const isRead = readIds.includes(f.id);
+    const descHtml = f.desc
+      ? `<div class="fc-desc">${escHtml(f.desc)}</div>`
+      : `<div class="fc-desc no-desc">No description extracted</div>`;
+    return `
+      <div class="file-card" style="--gc:${color}" onclick="openFile('${f.id}')">
+        <button class="fc-del" onclick="event.stopPropagation();removeFile('${f.id}')" title="Remove">✕</button>
+        <span class="fc-icon">${fileIcon(f.ext)}${isRead?'':' 🔵'}</span>
+        <div class="fc-name" title="${escHtml(f.name)}">${escHtml(f.nameNoExt)}</div>
+        ${descHtml}
+        <div class="fc-meta">
+          <span class="fc-type tp-${f.ext}">${f.ext.toUpperCase()}</span>
+          <span class="fc-size">${fmtSize(f.size)}</span>
+          ${g?`<span class="fc-group-dot" style="background:${g.color}" title="${escHtml(g.name)}"></span>`:''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function removeFile(id) {
+  if (!confirm('Remove this file from the library?')) return;
+  files     = files.filter(f=>f.id!==id);
+  recentIds = recentIds.filter(r=>r!==id);
+  saveRecent();
+  updateSidebar(); renderRecent(); renderGrid();
+}
+
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── VIEW TOGGLE ──────────────────────────────────────────────────────────────
+function setView(v) {
+  viewMode = v;
+  document.getElementById('fileGrid').className = 'file-grid' + (v==='list'?' list':'');
+  document.getElementById('btnGrid').classList.toggle('active', v==='grid');
+  document.getElementById('btnList').classList.toggle('active', v==='list');
+}
+
+// ─── OPEN FILE ────────────────────────────────────────────────────────────────
+async function openFile(id) {
+  const f = files.find(x=>x.id===id); if(!f) return;
+
+  // Mark read
+  if (!readIds.includes(id)) { readIds.push(id); saveRead(); }
+
+  recentIds = [id,...recentIds.filter(r=>r!==id)].slice(0,12);
+  saveRecent(); renderRecent();
+  currentId = id;
+
+  // Nav
+  const g = groups.find(x=>x.id===f.gid);
+  document.getElementById('navGrp').textContent  = g?.name||'';
+  document.getElementById('navFile').textContent = f.nameNoExt;
+  const badge = document.getElementById('navBadge');
+  badge.textContent = f.ext.toUpperCase();
+  badge.className   = 'file-badge tp-'+f.ext;
+  updateNavBtns();
+
+  document.getElementById('libraryView').classList.add('hidden');
+  document.getElementById('viewerView').classList.remove('hidden');
+  document.title = f.nameNoExt+' — AISL Paper Library';
+
+  hidePanels(); showLoading(true);
+
+  try {
+    let file;
+    try { file = await f.handle.getFile(); }
+    catch(e) { await f.handle.requestPermission({mode:'read'}); file = await f.handle.getFile(); }
+    currentFileObj = file;
+
+    if (f.ext==='pdf')            await loadPDF(file);
+    else if (['docx','doc'].includes(f.ext)) await loadDOCX(file);
+    else showMsg('📄','Cannot preview this file type','Click "Open Native" to open with your system app.');
+  } catch(err) {
+    console.error(err);
+    showMsg('⚠️','Could not load file', err.message||'Permission denied or file has moved.');
+  }
+  showLoading(false);
+}
+
+function closeViewer() {
+  document.getElementById('viewerView').classList.add('hidden');
+  document.getElementById('libraryView').classList.remove('hidden');
+  if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl=null; }
+  document.getElementById('pdfFrame').src='about:blank';
+  document.getElementById('docxContent').innerHTML='';
+  document.title='AISL OS — Paper Library';
+  renderGrid(); // refresh to show read status
+}
+
+// ─── LOAD PDF ────────────────────────────────────────────────────────────────
+async function loadPDF(file) {
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+  const blob = new Blob([await file.arrayBuffer()],{type:'application/pdf'});
+  blobUrl = URL.createObjectURL(blob);
+  const frame = document.getElementById('pdfFrame');
+  frame.src = blobUrl;
+  frame.style.display='block';
+}
+
+// ─── LOAD DOCX ───────────────────────────────────────────────────────────────
+async function loadDOCX(file) {
+  if (!window.mammoth) {
+    showMsg('📘','mammoth.js not loaded','Word rendering requires internet access. Use "Open Native" instead.'); return;
+  }
+  const res = await mammoth.convertToHtml({arrayBuffer: await file.arrayBuffer()});
+  document.getElementById('docxContent').innerHTML =
+    res.value || '<p style="color:#999;font-style:italic">This document appears to be empty.</p>';
+  document.getElementById('docxPanel').style.display='block';
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function visibleFiles() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  return files.filter(f=>{
+    if(activeGroup==='unread') return !readIds.includes(f.id);
+    if(activeGroup!=='all') return f.gid===activeGroup;
+    return true;
+  }).filter(f=>!q||f.nameNoExt.toLowerCase().includes(q));
+}
+
+function navigate(dir) {
+  const vf  = visibleFiles();
+  const idx = vf.findIndex(f=>f.id===currentId);
+  if (idx<0) return;
+  const next = vf[idx+dir];
+  if (next) openFile(next.id);
+}
+
+function updateNavBtns() {
+  const vf  = visibleFiles();
+  const idx = vf.findIndex(f=>f.id===currentId);
+  document.getElementById('prevBtn').disabled = idx<=0;
+  document.getElementById('nextBtn').disabled = idx>=vf.length-1;
+}
+
+function openNative() {
+  if (!currentFileObj) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(currentFileObj);
+  a.download = currentFileObj.name;
+  a.click();
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+function hidePanels() {
+  document.getElementById('pdfFrame').style.display='none';
+  document.getElementById('docxPanel').style.display='none';
+  document.getElementById('vmPanel').style.display='none';
+}
+function showMsg(icon,title,sub) {
+  document.getElementById('vmPanel').style.display='flex';
+  document.getElementById('vmTitle').textContent=title;
+  document.getElementById('vmSub').textContent=sub;
+}
+let loadingEl = null;
+function showLoading(on) {
+  if (on) {
+    if (loadingEl) return;
+    loadingEl=document.createElement('div');
+    loadingEl.style.cssText='position:absolute;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:10;color:var(--muted);font-size:13px';
+    loadingEl.innerHTML='<div style="width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite"></div>Loading…';
+    document.getElementById('viewerView').appendChild(loadingEl);
+  } else {
+    if (loadingEl) { loadingEl.remove(); loadingEl=null; }
+  }
+}
+const styleEl=document.createElement('style');
+styleEl.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(styleEl);
+
+// ─── ANALYSIS OVERLAY ────────────────────────────────────────────────────────
+function showAnalysis(show) {
+  document.getElementById('analysisOverlay').classList.toggle('active', show);
+}
+function hideAnalysis() { showAnalysis(false); }
+function setAnProgress(pct, status, filename, detail='') {
+  document.getElementById('anBar').style.width    = pct+'%';
+  document.getElementById('anStatus').textContent  = status;
+  document.getElementById('anDetail').textContent  = detail;
+  document.getElementById('anFileList').textContent = filename ? '📄 '+filename : '';
+}
+function tick(ms=0) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const inViewer = !document.getElementById('viewerView').classList.contains('hidden');
+  if (e.key==='Escape' && inViewer) closeViewer();
+  if (e.key==='ArrowRight' && inViewer) navigate(+1);
+  if (e.key==='ArrowLeft'  && inViewer) navigate(-1);
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+renderGrid();
+</script>
+</body>
+</html>

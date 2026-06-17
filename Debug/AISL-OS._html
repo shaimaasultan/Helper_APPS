@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AISL OS — Helper Tools Hub</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--card:#1e2530;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;
+  --blue:#58a6ff;--green:#3fb950;--red:#f85149;--amber:#d29922;--purple:#bc8cff;
+}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+
+/* ── HEADER ── */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.logo{font-size:19px;font-weight:700;color:var(--blue);letter-spacing:-.5px;white-space:nowrap}
+.logo span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+.search-wrap{flex:1;max-width:420px}
+.search-wrap input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px 8px 34px;border-radius:6px;font-size:14px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.44 1.979A5.5 5.5 0 1 1 8 2.5a5.5 5.5 0 0 1-3.698 9.823'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.search-wrap input:focus{border-color:var(--blue)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.badge{background:var(--card);border:1px solid var(--border);color:var(--muted);font-size:12px;padding:4px 10px;border-radius:20px}
+.btn-add-header{background:var(--blue);color:#fff;border:none;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer}
+.btn-add-header:hover{background:#79b8ff}
+
+/* ── MAIN ── */
+.main{max-width:1120px;margin:0 auto;padding:28px 24px}
+
+/* ── CATEGORY PILLS ── */
+.cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.cat-pill{background:var(--card);border:1px solid var(--border);color:var(--muted);font-size:13px;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none}
+.cat-pill:hover{border-color:var(--blue);color:var(--blue)}
+.cat-pill.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ── RECENTLY OPENED ── */
+.section-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.recent-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px;min-height:28px}
+.recent-chip{background:var(--surface);border:1px solid var(--border);color:var(--blue);font-size:12px;padding:4px 12px;border-radius:20px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:5px}
+.recent-chip:hover{background:var(--card)}
+.recent-empty{color:var(--muted);font-size:13px;font-style:italic;padding:4px 0}
+
+/* ── GRID ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:16px}
+
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;cursor:pointer;transition:border-color .15s,transform .12s,box-shadow .15s;text-decoration:none;display:block;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--accent,var(--blue))}
+.card:hover{border-color:var(--accent,var(--blue));transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.card-icon{font-size:26px;margin-bottom:11px;display:block}
+.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px;line-height:1.3}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:14px;min-height:37px}
+.card-footer{display:flex;align-items:center;justify-content:space-between}
+.card-cat{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:10px}
+.card-open{font-size:12px;color:var(--accent,var(--blue));font-weight:500}
+.card.custom-card::before{background:var(--amber)}
+.card.add-card{border:1px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:164px;color:var(--muted);gap:8px;background:transparent}
+.card.add-card::before{display:none}
+.card.add-card:hover{border-color:var(--blue);color:var(--blue);transform:translateY(-2px)}
+.no-results{text-align:center;color:var(--muted);padding:48px;font-size:14px;grid-column:1/-1}
+
+/* ── CAT ACCENT COLORS ── */
+.cat-text   {--accent:var(--blue)}
+.cat-visual {--accent:var(--purple)}
+.cat-math   {--accent:var(--amber)}
+.cat-files  {--accent:var(--green)}
+.cat-games  {--accent:var(--red)}
+.cat-custom {--accent:var(--amber)}
+
+/* ── DELETE BTN on card ── */
+.card-del{position:absolute;top:10px;right:10px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;opacity:0;transition:opacity .15s}
+.card:hover .card-del{opacity:1}
+.card-del:hover{color:var(--red)}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:100%;max-width:450px;animation:fadeUp .18s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.modal h2{font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.form-group input,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;outline:none;font-family:inherit}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue)}
+.path-hint{font-size:11px;color:var(--muted);font-family:'Courier New',monospace;margin-top:5px;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 80px;gap:12px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.btn{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:background .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#79b8ff}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--text);color:var(--text)}
+
+/* ── FOOTER ── */
+.footer{text-align:center;color:var(--muted);font-size:12px;padding:28px;margin-top:20px;border-top:1px solid var(--border);line-height:1.8}
+.footer code{background:var(--card);padding:2px 7px;border-radius:4px;font-family:'Courier New',monospace;font-size:11px;color:var(--blue)}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────── -->
+<div class="header">
+  <div class="logo">⬡ AISL OS <span>Helper Tools Hub</span></div>
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Search tools…" oninput="renderGrid()">
+  </div>
+  <div class="header-right">
+    <span class="badge" id="countBadge">12 tools</span>
+    <button class="btn-add-header" onclick="openModal()">+ Add Tool</button>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────── -->
+<div class="main">
+
+  <!-- Category pills -->
+  <div class="cats" id="catFilter">
+    <div class="cat-pill active" onclick="setCategory('all',this)">All</div>
+    <div class="cat-pill" onclick="setCategory('Text & Data',this)">📝 Text & Data</div>
+    <div class="cat-pill" onclick="setCategory('Visual & Image',this)">🎨 Visual & Image</div>
+    <div class="cat-pill" onclick="setCategory('Math & Crypto',this)">🔢 Math & Crypto</div>
+    <div class="cat-pill" onclick="setCategory('Files & Logs',this)">📁 Files & Logs</div>
+    <div class="cat-pill" onclick="setCategory('Games',this)">🎮 Games</div>
+    <div class="cat-pill" onclick="setCategory('Custom',this)">⭐ Custom</div>
+  </div>
+
+  <!-- Recently opened -->
+  <div class="section-label">Recently Opened</div>
+  <div class="recent-strip" id="recentStrip">
+    <span class="recent-empty">No tools opened yet</span>
+  </div>
+
+  <!-- Grid label + grid -->
+  <div class="section-label" id="gridLabel">All Tools</div>
+  <div class="grid" id="toolGrid"></div>
+</div>
+
+<!-- ── FOOTER ─────────────────────────────────── -->
+<div class="footer">
+  AISL OS · Glue Layer for Local Tools<br>
+  Save this file as <code>C:\Helper_APPS\AISL-OS.html</code> and open it in Edge — all tool links will resolve automatically.
+</div>
+
+<!-- ── ADD TOOL MODAL ─────────────────────────── -->
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <h2>➕ Add Custom Tool</h2>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Tool Name *</label>
+        <input type="text" id="newName" placeholder="My Custom Tool">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Icon (emoji)</label>
+        <input type="text" id="newIcon" placeholder="🔧" maxlength="4">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:14px">
+      <label>Relative Path *</label>
+      <input type="text" id="newPath" placeholder="MyFolder/index.html">
+      <div class="path-hint">
+        Relative to <code>C:\Helper_APPS\</code><br>
+        e.g. <code>MyTool/tool.html</code> or <code>../OtherFolder/app.html</code>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="newDesc" placeholder="What does this tool do?">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="newCat">
+        <option>Text & Data</option>
+        <option>Visual & Image</option>
+        <option>Math & Crypto</option>
+        <option>Files & Logs</option>
+        <option>Games</option>
+        <option>Custom</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addCustomTool()">Add Tool</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── BUILT-IN TOOLS (relative paths from C:\Helper_APPS\AISL-OS.html) ───────
+const BUILTIN = [
+  {
+    id:'xor', icon:'⊕', title:'XOR Text Comparison',
+    category:'Text & Data', catClass:'cat-text',
+    path:'Text_Diff/TDiff.html',
+    desc:'Symmetric difference between two texts — line, word, or character mode.'
+  },
+  {
+    id:'json', icon:'{}', title:'JSON Viewer',
+    category:'Text & Data', catClass:'cat-text',
+    path:'Json_viewer/JsonViewer.html',
+    desc:'Parse, format, explore and minify JSON structures interactively.'
+  },
+  {
+    id:'readme', icon:'📖', title:'README Viewer',
+    category:'Text & Data', catClass:'cat-text',
+    path:'ReadMe/-_Representation-main/Local_ReadMe.html',
+    desc:'Render and browse local Markdown README files with live preview.'
+  },
+  {
+    id:'mdfolder', icon:'📂', title:'Markdown Folder Viewer',
+    category:'Text & Data', catClass:'cat-text',
+    path:'ReadMe/-_Representation-main/folder_content.html',
+    desc:'Browse a folder tree and open Markdown files in place.'
+  },
+  {
+    id:'log', icon:'📋', title:'Advanced Log Viewer',
+    category:'Files & Logs', catClass:'cat-files',
+    path:'Log Viewer/LogViewer.html',
+    desc:'Load, search, filter and inspect log files with highlighting.'
+  },
+  {
+    id:'timestamp', icon:'🕒', title:'File Timestamp Filter',
+    category:'Files & Logs', catClass:'cat-files',
+    path:'TimeStamp/TimeStamp.html',
+    desc:'Filter and compare files within a precise timestamp date range.'
+  },
+  {
+    id:'matrix', icon:'🖼️', title:'Image Multiplication',
+    category:'Visual & Image', catClass:'cat-visual',
+    path:'Matrix/Matrix-NEOSugar.html',
+    desc:'Multiply and tile images using configurable matrix operations.'
+  },
+  {
+    id:'haze', icon:'🌫️', title:'Image Haze Transformation',
+    category:'Visual & Image', catClass:'cat-visual',
+    path:'Images/Transformer.html',
+    desc:'Apply atmospheric haze and transformation effects to images.'
+  },
+  {
+    id:'hexagon', icon:'⬡', title:'Nested Shapes — Full Controls',
+    category:'Visual & Image', catClass:'cat-visual',
+    path:'Hexagon/hexagon.html',
+    desc:'Interactive nested geometric shape builder with complete visual controls.'
+  },
+  {
+    id:'poly', icon:'📐', title:'Polynomial Root Solver',
+    category:'Math & Crypto', catClass:'cat-math',
+    path:'polynomials/polynomials1.html',
+    desc:'Visual symmetric polynomial root solver with step-by-step output.'
+  },
+  {
+    id:'cipher', icon:'🔐', title:'CipherGrid — Forensic Decoder',
+    category:'Math & Crypto', catClass:'cat-math',
+    path:'Enegma/ciphergrid.html',
+    desc:'Forensic-style cipher grid challenge and multi-method decoder.'
+  },
+  {
+    id:'sudoku', icon:'🧩', title:'Sudoku Solver',
+    category:'Games', catClass:'cat-games',
+    path:'../Sudoku_shaimaa/New folder (3)/sudoku_solver_ts/web/index.html',
+    desc:'TypeScript-powered interactive Sudoku solver with step-by-step logic.'
+  },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let activeCat  = 'all';
+let customTools = JSON.parse(localStorage.getItem('aisl_custom') || '[]');
+let recentIds   = JSON.parse(localStorage.getItem('aisl_recent') || '[]');
+
+function allTools() { return [...BUILTIN, ...customTools]; }
+function saveCustom(){ localStorage.setItem('aisl_custom', JSON.stringify(customTools)); }
+function saveRecent(){ localStorage.setItem('aisl_recent', JSON.stringify(recentIds)); }
+
+// ─── OPEN TOOL ───────────────────────────────────────────────────────────────
+function openTool(id) {
+  const tool = allTools().find(t => t.id === id);
+  if (!tool) return;
+  recentIds = [id, ...recentIds.filter(r => r !== id)].slice(0, 7);
+  saveRecent();
+  renderRecent();
+  window.open(tool.path, '_blank');
+}
+
+// ─── RECENT ──────────────────────────────────────────────────────────────────
+function renderRecent() {
+  const strip = document.getElementById('recentStrip');
+  const tools = allTools();
+  const items = recentIds.map(id => tools.find(t => t.id === id)).filter(Boolean);
+  strip.innerHTML = items.length
+    ? items.map(t => `<span class="recent-chip" onclick="openTool('${t.id}')">${t.icon} ${t.title}</span>`).join('')
+    : '<span class="recent-empty">No tools opened yet</span>';
+}
+
+// ─── GRID ────────────────────────────────────────────────────────────────────
+function renderGrid() {
+  const q     = document.getElementById('searchInput').value.toLowerCase();
+  const tools = allTools().filter(t => {
+    const catOk = activeCat === 'all' || t.category === activeCat;
+    const qOk   = !q || t.title.toLowerCase().includes(q)
+                     || t.desc.toLowerCase().includes(q)
+                     || t.category.toLowerCase().includes(q);
+    return catOk && qOk;
+  });
+
+  document.getElementById('countBadge').textContent = `${allTools().length} tools`;
+  document.getElementById('gridLabel').textContent =
+    activeCat === 'all' ? 'All Tools' : activeCat;
+
+  const grid = document.getElementById('toolGrid');
+  if (!tools.length) {
+    grid.innerHTML = '<div class="no-results">No tools match your search. Try a different keyword or category.</div>';
+    return;
+  }
+
+  const cards = tools.map(t => {
+    const isCustom = !!t.custom;
+    const delBtn   = isCustom
+      ? `<button class="card-del" title="Remove" onclick="event.stopPropagation();removeTool('${t.id}')">✕</button>`
+      : '';
+    return `
+      <div class="card ${t.catClass||'cat-text'} ${isCustom?'custom-card':''}" onclick="openTool('${t.id}')">
+        ${delBtn}
+        <span class="card-icon">${t.icon}</span>
+        <div class="card-title">${t.title}</div>
+        <div class="card-desc">${t.desc}</div>
+        <div class="card-footer">
+          <span class="card-cat">${t.category}</span>
+          <span class="card-open">Open ↗</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  grid.innerHTML = cards + `
+    <div class="card add-card" onclick="openModal()">
+      <span style="font-size:26px">➕</span>
+      <span style="font-size:13px">Add Custom Tool</span>
+    </div>`;
+}
+
+// ─── CATEGORY ────────────────────────────────────────────────────────────────
+function setCategory(cat, el) {
+  activeCat = cat;
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('addModal').classList.add('open'); }
+function closeModal() {
+  document.getElementById('addModal').classList.remove('open');
+  ['newName','newIcon','newPath','newDesc'].forEach(id => document.getElementById(id).value='');
+}
+
+document.getElementById('addModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('addModal')) closeModal();
+});
+
+function addCustomTool() {
+  const name = document.getElementById('newName').value.trim();
+  const icon = document.getElementById('newIcon').value.trim() || '🔧';
+  const path = document.getElementById('newPath').value.trim();
+  const desc = document.getElementById('newDesc').value.trim() || 'Custom tool.';
+  const cat  = document.getElementById('newCat').value;
+  if (!name) { alert('Please enter a tool name.'); return; }
+  if (!path) { alert('Please enter a relative path.'); return; }
+  const catClassMap = {
+    'Text & Data':'cat-text','Visual & Image':'cat-visual',
+    'Math & Crypto':'cat-math','Files & Logs':'cat-files',
+    'Games':'cat-games','Custom':'cat-custom'
+  };
+  customTools.push({ id:'c'+Date.now(), icon, title:name, category:cat,
+                     catClass:catClassMap[cat]||'cat-custom', path, desc, custom:true });
+  saveCustom();
+  closeModal();
+  renderGrid();
+}
+
+function removeTool(id) {
+  if (!confirm('Remove this custom tool?')) return;
+  customTools = customTools.filter(t => t.id !== id);
+  recentIds   = recentIds.filter(r => r !== id);
+  saveCustom(); saveRecent();
+  renderRecent(); renderGrid();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+renderRecent();
+renderGrid();
+</script>
+</body>
+</html>
