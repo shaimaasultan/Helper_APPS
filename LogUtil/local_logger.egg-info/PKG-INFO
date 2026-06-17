@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: local_logger
+Version: 0.1.0
+Summary: Custom logging utility with config and env support
+Author: ShaimaaSoltan
+Requires-Dist: python-dotenv
+Requires-Dist: colorlog
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: summary
