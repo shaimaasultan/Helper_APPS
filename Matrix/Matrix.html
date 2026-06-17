@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Multiplication</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Multiply Two Black & White Images</h1>
+  <div class="container">
+    <div class="upload-section">
+      <label>Image 1 (300×300):</label>
+      <input type="file" id="img1" accept="image/*" />
+      <label>Image 2 (300×600):</label>
+      <input type="file" id="img2" accept="image/*" />
+      <button onclick="multiplyImages()">Multiply</button>
+    </div>
+    <div class="canvas-section">
+      <canvas id="canvas1" ></canvas>
+      <canvas id="resultCanvas"></canvas>
+      <canvas id="edgeCanvas"></canvas>
+      <canvas id="canvas2"></canvas>
+    </div>
+  </div>
+  <script src="script3.js"></script>
+</body>
+</html>
