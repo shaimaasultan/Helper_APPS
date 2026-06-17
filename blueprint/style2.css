@@ -1,0 +1,61 @@
+﻿body {
+  background: #111;
+  color: #eee;
+  font-family: sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+
+h2 {
+  margin-bottom: 15px;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  background: #222;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.ctrl label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.ctrl input {
+  width: 70px;
+  padding: 4px;
+  border-radius: 4px;
+  border: none;
+  text-align: center;
+}
+
+canvas {
+  border: 1px solid #444;
+  image-rendering: pixelated;
+  margin-top: 10px;
+  cursor: crosshair;
+}
+
+button {
+  padding: 10px 20px;
+  margin: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#generate {
+  background: #3b82f6;
+  color: white;
+}
+
+#download {
+  background: #10b981;
+  color: white;
+}

@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+			<title>Convert 2D Plan to Maze Grid</title>
+			<style>
+				body { background:#222; color:white; font-family:Arial; text-align:center; }
+				canvas { border:2px solid white; margin-top:20px; }
+				input { margin:10px; }
+			</style>
+		</head>
+	<body>
+
+		<h2>Convert 2D Plan Image → Black/White Maze Grid</h2>
+		<h3>Legend</h3>
+		<div style="display:flex; justify-content:center; gap:20px;">
+
+			<div>
+				<span style="display:inline-block;width:20px;height:20px;background:black;"></span> Wall
+			</div>
+			<div>
+				<span style="display:inline-block;width:20px;height:20px;background:white;border:1px solid #555;"></span> Free Space
+			</div>
+			<div>
+				<span style="display:inline-block;width:20px;height:20px;background:green;"></span> Open Door
+			</div>
+			<div>
+				<span style="display:inline-block;width:20px;height:20px;background:red;"></span> Closed Door
+			</div>
+			<div>
+				<span style="display:inline-block;width:20px;height:20px;background:blue;"></span> Window
+			</div>
+
+		</div>
+		<input type="file" id="imgInput" accept="image/*">
+			<br>
+
+				Threshold:
+				<input type="range" id="threshold" min="0" max="255" value="128">
+					<span id="thVal">128</span>
+
+					<br>
+						<br>
+
+							<button onclick="convertImage()">Convert to Maze</button>
+
+							<h3>Original Image</h3>
+							<canvas id="srcCanvas"></canvas>
+
+							<h3>Binary Maze Output</h3>
+							<canvas id="mazeCanvas"></canvas>
+							
+
+							<script src="robot_image_to_maze.js"></script>
+						</body>
+</html>

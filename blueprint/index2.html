@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+			<title>Balanced Curvy Cave Generator + Pixel Solver</title>
+			<link rel="stylesheet" href="style2.css">
+</head>
+	<body>
+
+		<h2>Balanced Curvy Cave Generator + Pixel Solver</h2>
+
+		<div class="controls">
+			<div class="ctrl">
+				<label>Width</label>
+				<input id="paramW" type="number" value="128">
+  </div>
+
+			<div class="ctrl">
+				<label>Height</label>
+				<input id="paramH" type="number" value="128">
+  </div>
+
+			<div class="ctrl">
+				<label>Cell Size</label>
+				<input id="paramCELL" type="number" value="4">
+  </div>
+
+			<div class="ctrl">
+				<label>Fill Chance</label>
+				<input id="paramFill" type="number" step="0.01" value="0.50">
+  </div>
+
+			<div class="ctrl">
+				<label>Smoothing</label>
+				<input id="paramSmooth" type="number" value="6">
+  </div>
+		</div>
+
+		<p>Click canvas: first = Start, second = End</p>
+
+		<canvas id="c" width="512" height="512"></canvas>
+		<br>
+
+			<button id="generate">Generate Cave</button>
+			<button id="download">Download</button>
+
+			<script src="script2.js"></script>
+		</body>
+</html>

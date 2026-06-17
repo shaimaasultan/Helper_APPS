@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+			<title>Blueprint → Maze + Direction‑Aware Pixel Solver</title>
+			<link rel="stylesheet" href="style.css">
+</head>
+	<body>
+
+		<h1>Blueprint → Maze + Direction‑Aware Pixel Solver</h1>
+
+		<!-- =============================== -->
+		<!-- MAIN CONTROLS -->
+		<!-- =============================== -->
+		<div class="controls">
+
+			<label>
+				<strong>Load Plan Image:</strong>
+				<input type="file" id="imgInput" accept="image/*">
+    </label>
+
+			<br>
+				<br>
+
+					<label>
+						<strong>Threshold:</strong>
+						<input type="range" id="threshold" min="0" max="255" value="180">
+							<span id="thVal">180</span>
+						</label>
+
+					<br>
+						<br>
+
+							<label>
+								<strong>Wall Thickness:</strong>
+								<input type="range" id="wallThickness" min="1" max="20" value="4">
+									<span id="wallVal">4 px</span>
+								</label>
+
+							<br>
+								<br>
+
+									<button onclick="convertImage()">Convert</button>
+									<button onclick="solveMaze()">Solve</button>
+								</div>
+
+
+		<!-- =============================== -->
+		<!-- CANVASES -->
+		<!-- =============================== -->
+		<div class="row">
+			<div class="panel">
+				<h3>Original Image</h3>
+				<canvas id="srcCanvas"></canvas>
+			</div>
+
+			<div class="panel">
+				<h3>Maze (click: Start, then Target)</h3>
+				<canvas id="mazeCanvas"></canvas>
+			</div>
+		</div>
+
+
+		<!-- =============================== -->
+		<!-- LEGEND -->
+		<!-- =============================== -->
+		<div class="legend">
+			<div class="legend-item">
+				<div class="legend-color" style="background:black;"></div>
+				<span>Wall</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-color" style="background:white;"></div>
+				<span>Free Space</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-color" style="background:green;"></div>
+				<span>Start</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-color" style="background:red;"></div>
+				<span>Target</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-color" style="background:blue;"></div>
+				<span>Smoothed Path</span>
+			</div>
+		</div>
+
+		<script src="robot_image_to_maze.js"></script>
+
+	</body>
+</html>

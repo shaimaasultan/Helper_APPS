@@ -1,0 +1,48 @@
+﻿body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #eee;
+    text-align: center;
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 20px;
+}
+
+.panel {
+    border: 1px solid #444;
+    padding: 10px;
+    background: #222;
+}
+
+canvas {
+    border: 1px solid #555;
+    background: #000;
+    cursor: crosshair;
+}
+
+.controls {
+    margin-top: 20px;
+}
+
+.legend {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-color {
+    width: 18px;
+    height: 18px;
+    border: 1px solid #555;
+}
