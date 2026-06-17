@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="favicon.png">
+  <title>Image Haze Transformation</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h3>🔹 Image Transformers</h3>
+  <p>Upload an image to apply the misty transformation. <input type="file" id="imageUpload" accept="image/*" /></p>
+
+  <!-- Image Upload -->
+  
+
+
+  <!-- Control Buttons -->
+  <div class="controls">
+    <button id="resetBtn">Reset</button>
+    <button id="saveBtn">Save Image</button>
+
+  </div>
+  <!-- Effect Sliders -->
+  <div class="sliders">
+
+    <label>Brightness: <input type="range" id="brightnessSlider" min="-100" max="100" value="0" /><span id="brightnessValue">0</span></label>
+    <label>Contrast: <input type="range" id="contrastSlider" min="-100" max="100" value="0" /><span id="contrastValue">0</span></label>
+    <label>Haze Opacity: <input type="range" id="hazeSlider" min="0" max="1" step="0.01" value="0.5" /><span id="OpacityValue">0.5</span></label>
+    <label>Pixel Shift Range: <input type="range" id="shiftSlider" min="0" max="5" step="1" value="1" /><span id="noiseValue">1</span></label>
+    <label>Gaussian Blur Radius: <input type="range" id="gaussSlider" min="0" max="10" step="0.5" value="3" /><span id="blurValue">0.5</span></label>
+    <label>Diff Threshold: <input type="range" id="diffThreshold" min="0" max="255" value="50" /><span id="ThresholdValue">50</span></label>
+  </div>
+  <!-- Transformation Checklist -->
+  <div class="transformers">
+    Select Transformations:
+    <label><input type="checkbox" class="transform-option" value="Haze"> Haze</label>
+    <label><input type="checkbox" class="transform-option" value="PixelShift"> Pixel Shift</label>
+    <label><input type="checkbox" class="transform-option" value="Invert"> Invert</label>
+    <label><input type="checkbox" class="transform-option" value="Grayscale"> Grayscale</label>
+    <label><input type="checkbox" class="transform-option" value="Sepia"> Sepia</label>
+    <label><input type="checkbox" class="transform-option" value="Blur"> Blur</label>
+    <label><input type="checkbox" class="transform-option" value="brightness"> brightness/contrast</label>
+    <label><input type="checkbox" class="transform-option" value="GaussianBlur"> Gaussian Blur</label>
+  <!-- Apply Transformations Button -->
+  <button id="applyBtn">Apply Transformations</button>
+  </div>
+
+  <!-- Selected Transformations Label -->
+  <p id="selectedTransforms">Selected: None</p>
+  <div id="spinner" class="spinner hidden"></div>
+
+ <!-- Side-by-Side Preview -->
+<div class="side-by-side">
+  <div class="preview-panel">
+    <h3>Original Image</h3>
+    <canvas id="thumbnailCanvas"></canvas>
+  </div>
+
+  <div class="canvas-panel">
+    <h3>Transformed Image</h3>
+    <canvas id="Tcanvas"></canvas>
+  </div>
+
+  <div class="diff-panel">
+    <h3>Pixel Difference</h3>
+    <canvas id="diffCanvas"></canvas>
+  </div>
+  <div class="diff-panel-threshold">
+    <h3>Pixel Difference with threshold</h3>
+    <canvas id="diffCanvasthreshold"></canvas>
+  </div>
+  <div class="reconstructed-panel">
+    <h3>Reconstructed Image from [Pixel Difference]</h3>
+    <canvas id="reconstructedCanvas"></canvas>
+  </div>
+  
+</div>
+<div class="heatmap-legend-inline"> Heat Map Legend : 
+  <span class="legend-color green"></span> High Confidence
+  <span class="legend-color yellow"></span> Medium Confidence
+  <span class="legend-color red"></span> Low Confidence
+  <span class="legend-color black"></span> Unchanged
+</div>
+<div class="side-by-side">
+  <div class="heatmap-panel">
+    <h3>Confidence Heatmap [Pixel Difference vs Original]</h3>
+    <canvas id="heatmapCanvas"></canvas>
+  </div>
+
+  <div class="low-confidence-panel">
+    <h3>Low Confidence (Red)</h3>
+    <canvas id="lowConfidenceCanvas"></canvas>
+  </div>
+
+  <div class="medium-confidence-panel">
+    <h3>Medium Confidence (Yellow)</h3>
+    <canvas id="mediumConfidenceCanvas"></canvas>
+  </div>
+
+  <div class="high-confidence-panel">
+    <h3>High Confidence (Green)</h3>
+    <canvas id="highConfidenceCanvas"></canvas>
+  </div>
+
+  <div class="unchanged-panel">
+    <h3>Unchanged (Black)</h3>
+    <canvas id="unchangedCanvas"></canvas>
+  </div>
+
+</div>
+</body>
+
+
+  <!-- Scripts -->
+  <script src="globals.js"></script>
+  <script src="hazeEffect.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
