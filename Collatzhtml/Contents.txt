@@ -1,0 +1,49 @@
+Contents
+1 Every Odd Integer Belongs to a Unique Spiral Family
+2Internal Structure: The 4n + 1 Affine Spiral
+3 The Spiral Family Partition
+3.1 (1) Coverage . . . . . . . . . . . . . . . . . . . . . . . . . .
+3.2 (2) Disjointness . . . . . . . . . . . . . . . . . . . . . . . .
+3.3 (3) Internal Structure . . . . . . . . . . . . . . . . . . . . .
+4 Determining the Initial Exponent k0 from m
+5 Preliminaries
+6 Determining the Initial Exponent k0 (m)
+7 Affine Structure Inside Each Family
+8 Spiral Families
+9 Main Theorem: Partition into Spiral Families
+10 Appendix: Visualizations of Spiral Families
+11 Divisibility via Remainder Removal
+12 Modular Classification of Odd Integers into Collatz Families
+12.1 Example: Membership in Families 7, 11, 29 . . . . . . . . . . .
+12.2 Interpretation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+12.3 Interpretation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+13 Structure of Valid Odd Children, Family Intersections, and
+Global Geometry
+13.1 Valid Odd Children in the Inverse Collatz Map . . . . . . . .
+13.2 Intersections of Multiple Families via CRT . . . . . . . . . . .
+13.3 Visual Geometry of the Collatz Galaxy . . . . . . . . . . . .
+13.4 Density of Families Modulo Powers of Two . . . . . . . . . .
+13.5 Interpretation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+13.6 A Special Property of Families With 5 | m . . . . . . . . . . .
+14 Digit Patterns, Prime Factors of m, and the Collatz Galaxy
+14.1 Prime Factors of m and Decimal Endings of n . . . . . . . . .
+14.2 Digit-Pattern Classification Table . . . . . . . . . . . . . . . .
+14.3 Visual Digit-Color Map in the Collatz Galaxy . . . . . . . . .
+15 Prime Factors, Digit Endings, and Modular Classification
+15.1 Prime Factors p of m and Residues of n . . . . . . . . . . . .
+15.2 Modular Classification Modulo 10, 20, and 100 . . . . . . . .
+15.3 Visual Legend for a Collatz Galaxy UI . . . . . . . . . . . . .
+16 Fixed Last–Digit Classes for the Inverse Collatz Map
+17 Connection to Fixed-k Collatz Layer Visualizations
+18 Fixed-k Layers and Same–Color Connectivity
+19 The Fixed-k Collatz Layer as a Directed Graph
+20 Absence of Cycles in the Odd-Only Inverse Collatz Graph
+20.1 Directed Acyclic Structure . . . . . . . . . . . . . . . . . . . .
+20.2 Empirical Verification . . . . . . . . . . . . . . . . . . . . . . .
+20.3 Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+21 Absence of Cycles in the Odd-Only Inverse Collatz Graph
+20 Absence of Cycles in the Odd-Only Inverse Collatz Graph
+20.1 Directed Acyclic Structure . . . . . . . . . . . . . . . . . . . .
+20.2 Empirical Verification . . . . . . . . . . . . . . . . . . . . . . .
+20.3 Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+21 Absence of Cycles in the Odd-Only Inverse Collatz Graph

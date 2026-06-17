@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Collatz k-path intersections</title>
+  <script src="https://unpkg.com/vis-network@10.1.0/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0; }
+    #controls { padding: 10px; border-bottom: 1px solid #ccc; }
+    #network { width: 100vw; height: calc(100vh - 200px); }
+    label { margin-right: 10px; }
+    input { width: 80px; }
+
+    #legend {
+      padding: 10px;
+      background: #f7f7f7;
+      border-top: 1px solid #ccc;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .legend-item { margin-bottom: 4px; }
+    .color-box {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      vertical-align: middle;
+      border: 1px solid #333;
+    }
+
+    #infoPanel {
+      position: fixed;
+      right: 10px;
+      top: 10px;
+      width: 260px;
+      background: white;
+      border: 1px solid #aaa;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      font-size: 14px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+    }
+    #infoPanel h3 {
+      margin-top: 0;
+      font-size: 16px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <label>A: <input type="number" id="aInput" value="1"></label>
+    <label>B: <input type="number" id="bInput" value="400"></label>
+    <label>C (k min): <input type="number" id="cInput" value="1"></label>
+    <label>D (k max): <input type="number" id="dInput" value="7"></label>
+
+    <label>Search: <input type="number" id="searchInput"></label>
+    <button id="searchBtn">Search</button>
+
+    <button id="buildBtn">Build k-path intersections</button>
+  </div>
+
+  <div id="network"></div>
+  <div id="infoPanel"></div>
+
+  <div id="legend">
+    <div class="legend-item">
+      <span class="color-box" style="background:#BDBDBD;"></span>
+      <strong>Regular node</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#FFB74D;"></span>
+      <strong>Shared node (intersection)</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#ff5722;"></span>
+      <strong>Max total arrows (hub)</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#4caf50;"></span>
+      <strong>Max incoming arrows</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#2196f3;"></span>
+      <strong>Max outgoing arrows</strong>
+    </div>
+  </div>
+
+  <script>
+    const container = document.getElementById("network");
+    const infoPanel = document.getElementById("infoPanel");
+    let network = null;
+    let nodesDS = null;
+    let edgesDS = null;
+
+    function colorForLastDigit(n) {
+      const d = ((n % 10) + 10) % 10;
+      if (d === 1) return "#FFD54F";
+      if (d === 3) return "#EF5350";
+      if (d === 5) return "#66BB6A";
+      if (d === 7) return "#42A5F5";
+      if (d === 9) return "#AB47BC";
+      return "#BDBDBD";
+    }
+
+    function buildAllKPaths(A, B, C, D) {
+      const pathsByStart = new Map();
+      const occurrencesByNode = new Map();
+      const incoming = new Map();
+      const outgoing = new Map();
+
+      for (let n = A; n <= B; n++) {
+        if (n % 2 === 0) continue;
+
+        const path = [];
+
+        for (let k = C; k <= D; k++) {
+          const pow2k = 2 ** k;
+          const N = n * pow2k - 1;
+          if (N % 3 !== 0) continue;
+
+          const m = N / 3;
+          if (!Number.isInteger(m) || m % 2 === 0) continue;
+          if (m < A || m > B) continue;
+
+          const edge = { k, from: n, to: m };
+          path.push(edge);
+
+          if (!occurrencesByNode.has(m)) occurrencesByNode.set(m, []);
+          occurrencesByNode.get(m).push({ startN: n, k, from: n, to: m });
+
+          if (!incoming.has(m)) incoming.set(m, []);
+          incoming.get(m).push(edge);
+
+          if (!outgoing.has(n)) outgoing.set(n, []);
+          outgoing.get(n).push(edge);
+        }
+
+        if (path.length > 0) pathsByStart.set(n, path);
+      }
+
+      return { pathsByStart, occurrencesByNode, incoming, outgoing };
+    }
+
+    function findSharedNodes(occurrencesByNode) {
+      const shared = new Set();
+      for (const [m, occs] of occurrencesByNode.entries()) {
+        const starts = new Set(occs.map(o => o.startN));
+        if (starts.size > 1) shared.add(m);
+      }
+      return shared;
+    }
+
+    function render() {
+      const A = parseInt(document.getElementById("aInput").value);
+      const B = parseInt(document.getElementById("bInput").value);
+      const C = parseInt(document.getElementById("cInput").value);
+      const D = parseInt(document.getElementById("dInput").value);
+
+      const { pathsByStart, occurrencesByNode, incoming, outgoing } =
+        buildAllKPaths(A, B, C, D);
+
+      const sharedNodes = findSharedNodes(occurrencesByNode);
+
+      const nodesMap = new Map();
+      const edges = [];
+
+      function ensureNode(n) {
+        if (!nodesMap.has(n)) {
+          nodesMap.set(n, {
+            id: n,
+            label: String(n),
+            size: 18,
+            color: {
+              background: colorForLastDigit(n),
+              border: "#333"
+            }
+          });
+        }
+      }
+
+      for (const [startN, path] of pathsByStart.entries()) {
+        ensureNode(startN);
+        for (const e of path) {
+          ensureNode(e.to);
+          edges.push({
+            from: e.from,
+            to: e.to,
+            label: "k=" + e.k,
+            arrows: "to",
+            color: { color: "#000" },
+            font: { size: 10 }
+          });
+        }
+      }
+
+      // Compute degrees
+      const incomingCount = new Map();
+      const outgoingCount = new Map();
+      const totalCount = new Map();
+
+      for (const [n] of nodesMap.entries()) {
+        const inc = incoming.get(n) || [];
+        const out = outgoing.get(n) || [];
+        incomingCount.set(n, inc.length);
+        outgoingCount.set(n, out.length);
+        totalCount.set(n, inc.length + out.length);
+      }
+
+      // Find max nodes
+      let maxTotalNode = null, maxTotal = -1;
+      let maxIncomingNode = null, maxIncoming = -1;
+      let maxOutgoingNode = null, maxOutgoing = -1;
+
+      for (const [n, v] of totalCount.entries()) {
+        if (v > maxTotal) { maxTotal = v; maxTotalNode = n; }
+      }
+      for (const [n, v] of incomingCount.entries()) {
+        if (v > maxIncoming) { maxIncoming = v; maxIncomingNode = n; }
+      }
+      for (const [n, v] of outgoingCount.entries()) {
+        if (v > maxOutgoing) { maxOutgoing = v; maxOutgoingNode = n; }
+      }
+
+      // Apply final styling priority
+      for (const [n, node] of nodesMap.entries()) {
+
+        // 1. Max total arrows
+        if (n === maxTotalNode) {
+          node.size = 40;
+          node.color.background = "#ff5722";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 2. Max incoming
+        if (n === maxIncomingNode) {
+          node.size = 34;
+          node.color.background = "#4caf50";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 3. Max outgoing
+        if (n === maxOutgoingNode) {
+          node.size = 30;
+          node.color.background = "#2196f3";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 4. Shared nodes
+        if (sharedNodes.has(n)) {
+          node.size = 28;
+          node.color.background = "#FFB74D";
+          node.color.border = "#333";
+          continue;
+        }
+
+        // 5. Regular nodes keep digit color
+        node.size = 18;
+        node.color.background = colorForLastDigit(n);
+      }
+
+      nodesDS = new vis.DataSet(Array.from(nodesMap.values()));
+      edgesDS = new vis.DataSet(edges);
+
+      const data = { nodes: nodesDS, edges: edgesDS };
+
+      const options = {
+        physics: {
+          enabled: true,
+          solver: "forceAtlas2Based",
+          stabilization: { iterations: 50 },
+          forceAtlas2Based: {
+            gravitationalConstant: -30,
+            centralGravity: 0.002,
+            springLength: 80,
+            springConstant: 0.05,
+            avoidOverlap: 1
+          }
+        },
+        nodes: { shape: "dot", font: { size: 14 } },
+        edges: { arrows: "to", smooth: false }
+      };
+
+      if (network) network.destroy();
+      network = new vis.Network(container, data, options);
+
+      // CLICK HANDLER
+      network.on("click", function(params) {
+        if (!params.nodes.length) {
+          infoPanel.style.display = "none";
+          return;
+        }
+
+        const id = params.nodes[0];
+        const inc = incoming.get(id) || [];
+        const out = outgoing.get(id) || [];
+
+        let type = "Regular";
+        if (id === maxTotalNode) type = "MAX TOTAL (hub)";
+        else if (id === maxIncomingNode) type = "MAX INCOMING";
+        else if (id === maxOutgoingNode) type = "MAX OUTGOING";
+        else if (sharedNodes.has(id)) type = "Shared (intersection)";
+
+        infoPanel.innerHTML = `
+          <h3>Node ${id}</h3>
+          <p><strong>Type:</strong> ${type}</p>
+          <p><strong>Total arrows:</strong> ${inc.length + out.length}</p>
+          <p><strong>Incoming:</strong> ${inc.length}</p>
+          <p><strong>Outgoing:</strong> ${out.length}</p>
+          <p><strong>Incoming edges:</strong></p>
+          <ul>${inc.map(e => `<li>${e.from} → ${id} (k=${e.k})</li>`).join("")}</ul>
+          <p><strong>Outgoing edges:</strong></p>
+          <ul>${out.map(e => `<li>${id} → ${e.to} (k=${e.k})</li>`).join("")}</ul>
+        `;
+        infoPanel.style.display = "block";
+
+        network.focus(id, {
+          scale: 1.8,
+          animation: { duration: 600, easingFunction: "easeInOutQuad" }
+        });
+      });
+    }
+
+    function searchNode() {
+      const value = parseInt(document.getElementById("searchInput").value);
+      if (!value || !nodesDS) return;
+
+      const all = nodesDS.get();
+      all.forEach(n => {
+        n.color.border = "#333";
+        nodesDS.update(n);
+      });
+
+      if (nodesDS.get(value)) {
+        nodesDS.update({
+          id: value,
+          color: { background: "#00e5ff", border: "#000" }
+        });
+
+        network.focus(value, {
+          scale: 1.8,
+          animation: { duration: 600, easingFunction: "easeInOutQuad" }
+        });
+      }
+    }
+
+    document.getElementById("buildBtn").addEventListener("click", render);
+    document.getElementById("searchBtn").addEventListener("click", searchNode);
+
+    render();
+  </script>
+
+</body>
+</html>

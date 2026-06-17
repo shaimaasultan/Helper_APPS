@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Markdown Folder Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    #dropzone {
+      border: 2px dashed #0078d4;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 1rem;
+      background: #f9f9f9;
+    }
+    img { max-width: 200px; margin: 10px; }
+    pre code { background: #f0f0f0; padding: 1rem; display: block; }
+    .md-block { margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+
+  <h1>📁 Markdown Folder Viewer</h1>
+
+  <label for="picker" style="display:inline-block; padding:0.5rem 1rem; background:#0078d4; color:white; border-radius:4px; cursor:pointer;">
+    Choose Folder
+  </label>
+  <input type="file" id="picker" webkitdirectory directory style="display:none;" />
+
+  <div id="dropzone">📂 Drag and drop a folder here</div>
+  <div id="preview"></div>
+
+  <script>
+    const preview = document.getElementById('preview');
+
+    function validateFiles(files) {
+      const hasReadme = Array.from(files).some(f => f.name === 'README.md');
+      if (!hasReadme) {
+        alert('Missing README.md file!');
+      }
+    }
+
+    function handleFile(file) {
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        preview.appendChild(img);
+      } else if (file.name.endsWith('.md')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const mdBlock = document.createElement('div');
+          mdBlock.className = 'md-block';
+          mdBlock.innerHTML = marked.parse(reader.result, {
+            highlight: (code, lang) => {
+              return hljs.highlightAuto(code, [lang]).value;
+            }
+          });
+          preview.appendChild(mdBlock);
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    function processFiles(fileList) {
+      preview.innerHTML = '';
+      const files = Array.from(fileList);
+      validateFiles(files);
+      files.forEach(handleFile);
+    }
+
+    document.getElementById('picker').addEventListener('change', (e) => {
+      processFiles(e.target.files);
+    });
+
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.style.background = '#e0f7ff';
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.background = '';
+    });
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.style.background = '';
+
+      const items = e.dataTransfer.items;
+      if (items && items[0].webkitGetAsEntry) {
+        for (const item of items) {
+          const entry = item.webkitGetAsEntry();
+          if (entry && entry.isDirectory) {
+            readFolder(entry);
+          }
+        }
+      } else {
+        // Fallback: treat as flat file list
+        const files = e.dataTransfer.files;
+        processFiles(files);
+      }
+    });
+
+    function readFolder(entry, allFiles = []) {
+  const reader = entry.createReader();
+
+  // Read entries in batches (some browsers require multiple reads)
+  const readEntries = () => {
+    reader.readEntries(entries => {
+      if (entries.length === 0) {
+        // Done reading this folder
+        processFiles(allFiles);
+        return;
+      }
+
+      entries.forEach(subEntry => {
+        if (subEntry.isFile) {
+          subEntry.file(file => {
+            // Attach relative path manually
+            file.webkitRelativePath = subEntry.fullPath;
+            allFiles.push(file);
+          });
+        } else if (subEntry.isDirectory) {
+          readFolder(subEntry, allFiles);
+        }
+      });
+
+      // Continue reading next batch
+      readEntries();
+    });
+  };
+
+  readEntries();
+}
+
+  
+  </script>
+
+</body>
+</html>

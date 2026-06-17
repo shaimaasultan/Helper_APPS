@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixed-k Collatz Layer</title>
+  <script src="https://unpkg.com/vis-network@10.1.0/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0; }
+    #controls { padding: 10px; border-bottom: 1px solid #ccc; }
+    #network { width: 100vw; height: calc(100vh - 70px); }
+    label { margin-right: 10px; }
+    input { width: 80px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label>k:
+      <input type="number" id="kInput" value="3" min="1">
+    </label>
+    <label>Odd numbers From A:
+      <input type="number" id="aInput" value="1">
+    </label>
+    <label>to B:
+      <input type="number" id="bInput" value="200">
+    </label>
+    <button id="buildBtn">Build graph</button>
+  </div>
+
+  <div id="network"></div>
+
+  <script>
+    const container = document.getElementById("network");
+    let network = null;
+
+    function colorForLastDigit(n) {
+      const d = ((n % 10) + 10) % 10;
+      if (d === 1) return "#FFD54F";
+      if (d === 3) return "#EF5350";
+      if (d === 5) return "#66BB6A";
+      if (d === 7) return "#42A5F5";
+      if (d === 9) return "#AB47BC";
+      return "#BDBDBD";
+    }
+
+    function buildFixedKGraph(k, A, B) {
+      const nodes = [];
+      const edges = [];
+      const nodeSet = new Set();
+
+      function addNode(n) {
+        if (!nodeSet.has(n)) {
+          nodeSet.add(n);
+          const baseColor = colorForLastDigit(n);
+          nodes.push({
+            id: n,
+            label: String(n),
+            color: { background: baseColor, border: "#333" }
+          });
+        }
+      }
+
+      // For every odd n in [A,B], check if there is an odd m in [A,B]
+      // such that 3n+1 = m * 2^k
+      const pow2k = 2 ** k;
+
+      for (let n = A; n <= B; n++) {
+        if (n % 2 === 0) continue; // only odd n
+
+        const N = 3 * n + 1;
+        if (N % pow2k !== 0) continue;
+
+        const m = N / pow2k;
+        if (!Number.isInteger(m) || m % 2 === 0) continue;
+        if (m < A || m > B) continue;
+
+        addNode(n);
+        addNode(m);
+
+        edges.push({
+          from: n,
+          to: m,
+          label: "k=" + k,
+          arrows: "to",
+          font: { align: "middle", size: 12 }
+        });
+      }
+
+      return { nodes, edges };
+    }
+
+    function render() {
+      const k = parseInt(document.getElementById("kInput").value);
+      const A = parseInt(document.getElementById("aInput").value);
+      const B = parseInt(document.getElementById("bInput").value);
+
+      const { nodes, edges } = buildFixedKGraph(k, A, B);
+
+      const data = {
+        nodes: new vis.DataSet(nodes),
+        edges: new vis.DataSet(edges)
+      };
+
+      const options = {
+        physics: {
+          enabled: true,
+          stabilization: { iterations: 200 }
+        },
+        nodes: {
+          shape: "dot",
+          size: 18,
+          font: { size: 16 }
+        },
+        edges: {
+          arrows: "to",
+          smooth: { type: "dynamic" }
+        }
+      };
+
+      if (network) {
+        network.destroy();
+      }
+      network = new vis.Network(container, data, options);
+    }
+
+    document.getElementById("buildBtn").addEventListener("click", render);
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>

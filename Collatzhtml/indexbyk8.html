@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Collatz k-path intersections</title>
+  <script src="https://unpkg.com/vis-network@10.1.0/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0; }
+    #controls { padding: 10px; border-bottom: 1px solid #ccc; }
+    #network { width: 100vw; height: calc(100vh - 200px); }
+    label { margin-right: 10px; }
+    input { width: 80px; }
+
+    #legend {
+      padding: 10px;
+      background: #f7f7f7;
+      border-top: 1px solid #ccc;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .legend-item { margin-bottom: 4px; }
+    .color-box {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      vertical-align: middle;
+      border: 1px solid #333;
+    }
+
+    #infoPanel {
+      position: fixed;
+      right: 10px;
+      top: 10px;
+      width: 260px;
+      background: white;
+      border: 1px solid #aaa;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      font-size: 14px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+    }
+    #infoPanel h3 {
+      margin-top: 0;
+      font-size: 16px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <label>A: <input type="number" id="aInput" value="1"></label>
+    <label>B: <input type="number" id="bInput" value="400"></label>
+    <label>C (k min): <input type="number" id="cInput" value="1"></label>
+    <label>D (k max): <input type="number" id="dInput" value="7"></label>
+
+    <label>Search: <input type="number" id="searchInput"></label>
+    <button id="searchBtn">Search</button>
+
+    <button id="buildBtn">Build k-path intersections</button>
+  </div>
+
+  <div id="network"></div>
+  <div id="infoPanel"></div>
+
+  <div id="legend">
+    <div class="legend-item">
+      <span class="color-box" style="background:#BDBDBD;"></span>
+      <strong>Regular node</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#FFB74D;"></span>
+      <strong>Shared node (intersection)</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#ff5722;"></span>
+      <strong>Max total arrows (hub)</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#4caf50;"></span>
+      <strong>Max incoming arrows</strong>
+    </div>
+    <div class="legend-item">
+      <span class="color-box" style="background:#2196f3;"></span>
+      <strong>Max outgoing arrows</strong>
+    </div>
+  </div>
+
+  <script>
+    const container = document.getElementById("network");
+    const infoPanel = document.getElementById("infoPanel");
+    let network = null;
+    let nodesDS = null;
+    let edgesDS = null;
+    let pickStart = null;
+    let pickEnd = null;
+
+
+    function colorForLastDigit(n) {
+      const d = ((n % 10) + 10) % 10;
+      if (d === 1) return "#FFD54F";
+      if (d === 3) return "#EF5350";
+      if (d === 5) return "#66BB6A";
+      if (d === 7) return "#42A5F5";
+      if (d === 9) return "#AB47BC";
+      return "#BDBDBD";
+    }
+
+    function buildAllKPaths(A, B, C, D) {
+      const pathsByStart = new Map();
+      const occurrencesByNode = new Map();
+      const incoming = new Map();
+      const outgoing = new Map();
+
+      for (let n = A; n <= B; n++) {
+        if (n % 2 === 0) continue;
+
+        const path = [];
+
+        for (let k = C; k <= D; k++) {
+          const pow2k = 2 ** k;
+          const N = n * pow2k - 1;
+          if (N % 3 !== 0) continue;
+
+          const m = N / 3;
+          if (!Number.isInteger(m) || m % 2 === 0) continue;
+          if (m < A || m > B) continue;
+
+          const edge = { k, from: n, to: m };
+          path.push(edge);
+
+          if (!occurrencesByNode.has(m)) occurrencesByNode.set(m, []);
+          occurrencesByNode.get(m).push({ startN: n, k, from: n, to: m });
+
+          if (!incoming.has(m)) incoming.set(m, []);
+          incoming.get(m).push(edge);
+
+          if (!outgoing.has(n)) outgoing.set(n, []);
+          outgoing.get(n).push(edge);
+        }
+
+        if (path.length > 0) pathsByStart.set(n, path);
+      }
+
+      return { pathsByStart, occurrencesByNode, incoming, outgoing };
+    }
+
+    function findSharedNodes(occurrencesByNode) {
+      const shared = new Set();
+      for (const [m, occs] of occurrencesByNode.entries()) {
+        const starts = new Set(occs.map(o => o.startN));
+        if (starts.size > 1) shared.add(m);
+      }
+      return shared;
+    }
+
+    function findPath(start, end, graph) {
+      const queue = [[start]];
+      const visited = new Set([start]);
+
+      while (queue.length > 0) {
+        const path = queue.shift();
+        const last = path[path.length - 1];
+
+        if (last === end) return path;
+
+        const neighbors = graph.get(last) || [];
+        for (const n of neighbors) {
+          if (!visited.has(n.to)) {
+            visited.add(n.to);
+            queue.push([...path, n.to]);
+          }
+        }
+      }
+      return null;
+    }
+
+    function extractEdges(path, graph) {
+      const edges = [];
+      for (let i = 0; i < path.length - 1; i++) {
+        const from = path[i];
+        const to = path[i+1];
+        const list = graph.get(from);
+        const edge = list.find(e => e.to === to);
+        edges.push(edge);
+      }
+      return edges;
+    }
+
+    function computeChain(n0, nt, edges) {
+      const t = edges.length;
+      const K = edges.reduce((s, e) => s + e.k, 0);
+
+      if (isNaN(n0) || isNaN(nt) || isNaN(K) || isNaN(t)) {
+        throw new Error(`Invalid chain parameters (NaN detected) n0=${n0}, nt=${nt}, K=${K}, t=${t}`);
+      }
+
+      const big2 = 2n;
+      const big3 = 3n;
+      const bigN0 = BigInt(n0);
+      const bigNt = BigInt(nt);
+      const bigK = BigInt(K);
+      const bigT = BigInt(t);
+
+      const left  = big2 ** bigK * bigN0;
+      const right = big3 ** bigT * bigNt;
+      const C = left - right;
+
+      // reduced constant C' = C / 3^t (integer division)
+      const denom = big3 ** bigT;
+      const Cprime = C / denom;
+
+      // drift ratio 2^K / 3^t as a JS number (may overflow for huge K,t)
+      const drift = Number(big2 ** bigK) / Number(denom);
+
+      return {
+        t,
+        K,
+        C: C.toString(),
+        Cprime: Cprime.toString(),
+        drift,
+        left,
+        right
+      };
+    }
+
+
+
+    function render() {
+      const A = parseInt(document.getElementById("aInput").value);
+      const B = parseInt(document.getElementById("bInput").value);
+      const C = parseInt(document.getElementById("cInput").value);
+      const D = parseInt(document.getElementById("dInput").value);
+
+      const { pathsByStart, occurrencesByNode, incoming, outgoing } =
+        buildAllKPaths(A, B, C, D);
+
+      const sharedNodes = findSharedNodes(occurrencesByNode);
+
+      const nodesMap = new Map();
+      const edges = [];
+
+      function ensureNode(n) {
+        if (!nodesMap.has(n)) {
+          nodesMap.set(n, {
+            id: n,
+            label: String(n),
+            size: 18,
+            color: {
+              background: colorForLastDigit(n),
+              border: "#333"
+            }
+          });
+        }
+      }
+
+      for (const [startN, path] of pathsByStart.entries()) {
+        ensureNode(startN);
+        for (const e of path) {
+          ensureNode(e.to);
+          // ⭐ Forward edge (original)
+          edges.push({
+            id: `f${e.from}-t${e.to}`,
+            from: e.from,
+            to: e.to,
+            k: e.k,
+            label: "k=" + e.k,
+            arrows: "to",
+            color: { color: "#000" },
+            font: { size: 10 }
+          });
+          // ⭐ Reverse edge (for bidirectional BFS + correct highlighting)
+          edges.push({
+            id: `t${e.to}-f${e.from}`,
+            from: e.to,
+            to: e.from,
+            k: e.k,                 // same k-value
+            label: "k=" + e.k,
+            arrows: "to",           // still draw arrow in reverse direction
+            color: { color: "#aaa" }, // optional: lighter color
+            font: { size: 10 }
+          });
+        }
+      }
+
+      // Compute degrees
+      const incomingCount = new Map();
+      const outgoingCount = new Map();
+      const totalCount = new Map();
+
+      for (const [n] of nodesMap.entries()) {
+        const inc = incoming.get(n) || [];
+        const out = outgoing.get(n) || [];
+        incomingCount.set(n, inc.length);
+        outgoingCount.set(n, out.length);
+        totalCount.set(n, inc.length + out.length);
+      }
+
+      // Find max nodes
+      let maxTotalNode = null, maxTotal = -1;
+      let maxIncomingNode = null, maxIncoming = -1;
+      let maxOutgoingNode = null, maxOutgoing = -1;
+
+      for (const [n, v] of totalCount.entries()) {
+        if (v > maxTotal) { maxTotal = v; maxTotalNode = n; }
+      }
+      for (const [n, v] of incomingCount.entries()) {
+        if (v > maxIncoming) { maxIncoming = v; maxIncomingNode = n; }
+      }
+      for (const [n, v] of outgoingCount.entries()) {
+        if (v > maxOutgoing) { maxOutgoing = v; maxOutgoingNode = n; }
+      }
+
+      // Apply final styling priority
+      for (const [n, node] of nodesMap.entries()) {
+
+        // 1. Max total arrows
+        if (n === maxTotalNode) {
+          node.size = 40;
+          node.color.background = "#ff5722";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 2. Max incoming
+        if (n === maxIncomingNode) {
+          node.size = 34;
+          node.color.background = "#4caf50";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 3. Max outgoing
+        if (n === maxOutgoingNode) {
+          node.size = 30;
+          node.color.background = "#2196f3";
+          node.color.border = "#000";
+          continue;
+        }
+
+        // 4. Shared nodes
+        if (sharedNodes.has(n)) {
+          node.size = 28;
+          node.color.background = "#FFB74D";
+          node.color.border = "#333";
+          continue;
+        }
+
+        // 5. Regular nodes keep digit color
+        node.size = 18;
+        node.color.background = colorForLastDigit(n);
+      }
+
+      let lastPathData = null;   // for path comparison mode
+
+      // Build adjacency list for BFS
+      // Build global adjacency list for BFS
+      globalGraph = new Map();
+      globalEdges = edges;
+
+      globalEdges.forEach(e => {
+        if (!globalGraph.has(e.from)) globalGraph.set(e.from, []);
+        globalGraph.get(e.from).push({ from: e.from, to: e.to, k: e.k });
+      });
+
+      // ⭐ FIX 1: Make edges bidirectional for path search
+      globalEdges.forEach(e => {
+        if (!globalGraph.has(e.to)) globalGraph.set(e.to, []);
+        globalGraph.get(e.to).push({ from: e.to, to: e.from, k: e.k });
+      });
+
+      // ⭐ FIX 2: Ensure every node has an adjacency list (leaf nodes)
+      nodesMap.forEach((_, n) => {
+        if (!globalGraph.has(n)) {
+          globalGraph.set(n, []);   // leaf node with no outgoing edges
+        }
+      });
+
+      nodesDS = new vis.DataSet(Array.from(nodesMap.values()));
+      edgesDS = new vis.DataSet(edges);
+      
+      const data = { nodes: nodesDS, edges: edgesDS };
+
+      const options = {
+        layout: { improvedLayout: false },
+        physics: {
+          enabled: true,
+          solver: "forceAtlas2Based",
+          stabilization: { iterations: 50 },
+          forceAtlas2Based: {
+            gravitationalConstant: -30,
+            centralGravity: 0.002,
+            springLength: 80,
+            springConstant: 0.05,
+            avoidOverlap: 1
+          }
+        },
+        nodes: { shape: "dot", font: { size: 14 } },
+        edges: { arrows: "to", smooth: false }
+      };
+
+      if (network) network.destroy();
+      network = new vis.Network(container, data, options);
+
+      // CLICK HANDLER
+      network.on("click", function(params) {
+  if (!params.nodes.length) return;
+
+        const id = params.nodes[0];
+
+        // FIRST CLICK → pick start
+        if (pickStart === null) {
+          pickStart = id;
+          infoPanel.innerHTML = `<h3>Start node selected: ${id}</h3>`;
+          infoPanel.style.display = "block";
+          return;
+        }
+
+        // SECOND CLICK → pick end
+        if (pickEnd === null) {
+          pickEnd = id;
+
+          const path = findPath(pickStart, pickEnd, globalGraph);
+
+          if (!path) {
+            infoPanel.innerHTML = `<h3>No path found from ${pickStart} to ${pickEnd}</h3>`;
+            pickStart = null;
+            pickEnd = null;
+            return;
+          }
+
+          const edges = extractEdges(path, globalGraph);
+          let chain;
+          try {
+            chain = computeChain(pickStart, pickEnd, edges);
+          } catch (err) {
+            infoPanel.innerHTML = `<h3>Error computing chain: ${err.message}</h3>`;
+            pickStart = null;
+            pickEnd = null;
+            return;
+          }
+
+          // after computeChain(...)
+          const { t, K, C, Cprime, drift, left, right } = chain;
+
+          // store current path data (we'll fill edges later)
+          const currentPathData = {
+            start: pickStart,
+            end: pickEnd,
+            t,
+            K,
+            C,
+            Cprime,
+            drift,
+            edges: edges   // ⭐ store edges of this path
+          };
+
+
+
+          // Highlight path
+          edgesDS.update(
+            edges.map(e => ({
+              id: `${e.from}-${e.to}`,
+              color: { color: "#ff0000" },
+              width: 3
+            }))
+          );
+          // Cycle‑candidate detection
+          let cycleNote = "";
+          if (pickStart === pickEnd) {
+            if (C === "0") {
+              cycleNote = "<p><strong>Cycle candidate:</strong> exact cycle (C = 0)</p>";
+            } else {
+              cycleNote = "<p><strong>Cycle note:</strong> same start/end but C ≠ 0 (no exact cycle)</p>";
+            }
+          }
+
+          // Path comparison mode (compare with lastPathData)
+          let compareNote = "";
+          if (lastPathData) {
+            const sameK = (lastPathData.K === K);
+            const sameT = (lastPathData.t === t);
+            const sameC = (lastPathData.C === C);
+
+            const bits = [];
+            if (sameK) bits.push("same K");
+            if (sameT) bits.push("same t");
+            if (sameC) bits.push("same C");
+
+            if (bits.length) {
+              compareNote = `<p><strong>Compared to previous path:</strong> ${bits.join(", ")}</p>`;
+            } else {
+              compareNote = `<p><strong>Compared to previous path:</strong> different K, t, and C</p>`;
+            }
+          }
+
+          // ⭐ Reset all edges to default style
+          edgesDS.update(
+            edges.map(e => ({
+              id: e.id,
+              color: { color: "#000" },
+              width: 1
+            }))
+          );
+
+          // ⭐ Highlight current path edges (always)
+          edgesDS.update(
+            edges.map(e => ({
+              id: `${e.from}-${e.to}`,
+              color: { color: "#ff0000" },
+              width: 3
+            }))
+          );
+
+          // ⭐ If previous path exists and has same t, highlight its edges too
+          if (lastPathData && lastPathData.t === t) {
+            edgesDS.update(
+              lastPathData.edges.map(e => ({
+                id: `${e.from}-${e.to}`,
+                color: { color: "#00bcd4" }, // cyan for "same t" family
+                width: 3
+              }))
+            );
+          }
+
+
+          // Affine map display
+          const affineMap = `
+          n_t = (2^${K} · ${pickStart} − ${C}) / 3^${t}
+          `;
+
+          // Build info panel
+          infoPanel.innerHTML = `
+            <h3>Path from ${pickStart} to ${pickEnd}</h3>
+            <p><strong>Nodes:</strong> ${path.join(" → ")}</p>
+            <p><strong>k-values:</strong> ${edges.map(e => e.k).join(", ")}</p>
+            <p><strong>t (edges):</strong> ${t}</p>
+            <p><strong>K (sum k):</strong> ${K}</p>
+            <p><strong>C:</strong> ${C}</p>
+            <p><strong>Reduced constant C′ = C / 3^t:</strong> ${Cprime}</p>
+            <p><strong>Drift ratio 2^K / 3^t:</strong> ${drift}</p>
+            <p><strong>Identity:</strong><br>
+              2^${K} × ${pickStart} = 3^${t} × ${pickEnd} + ${C}
+            </p>
+            <p><strong>Affine map:</strong><br>
+              ${affineMap}
+            </p>
+            ${cycleNote}
+            ${compareNote}
+          `;
+          infoPanel.style.display = "block";
+
+          // store for next comparison
+          //lastPathData = { start: pickStart, end: pickEnd, t, K, C, Cprime, drift };
+          lastPathData = currentPathData;
+
+
+
+          // Reset for next selection
+          pickStart = null;
+          pickEnd = null;
+        }
+      });
+
+    }
+
+    function searchNode() {
+      const value = parseInt(document.getElementById("searchInput").value);
+      if (!value || !nodesDS) return;
+
+      const all = nodesDS.get();
+      all.forEach(n => {
+        n.color.border = "#333";
+        nodesDS.update(n);
+      });
+
+      if (nodesDS.get(value)) {
+        nodesDS.update({
+          id: value,
+          color: { background: "#00e5ff", border: "#000" }
+        });
+
+        network.focus(value, {
+          scale: 1.8,
+          animation: { duration: 600, easingFunction: "easeInOutQuad" }
+        });
+      }
+    }
+
+    document.getElementById("buildBtn").addEventListener("click", render);
+    document.getElementById("searchBtn").addEventListener("click", searchNode);
+
+    render();
+  </script>
+
+</body>
+</html>

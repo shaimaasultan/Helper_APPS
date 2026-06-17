@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Inverse Collatz Graph + Dynamic Spiral</title>
+
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+<div id="header">
+    <h3 id="graphTitle">Inverse Collatz Graph & Dynamic Spiral</h3>
+    <h1 id="authorName">By: Shaimaa Soltan<div class="copilotBadge">Built using Copilot</div></h1>
+    
+</div>
+
+
+<div id="controls">
+    
+
+    <div>
+        <strong>Search number:</strong>
+        <input id="searchInput" type="number" placeholder="Enter number">
+        <button id="searchBtn">Search</button>
+        <span id="searchMsg" style="color:red; font-weight:bold;"></span>
+    </div>
+
+    <div>
+        <strong>m‑values (comma‑separated):</strong>
+        <input id="mInput" type="text" value="3,5,7,11" size="15">
+        <button id="applyBtn">Apply</button>
+    </div>
+
+    <div>
+        <strong>Branch length:</strong>
+        <input id="branchInput" type="number" value="200" min="10" max="2000" step="10">
+    </div>
+
+    <div id="familyToggles">
+        <!-- checkboxes will be auto‑generated here -->
+    </div>
+
+    <div id="legend">
+        <strong>Color legend (last digit):</strong>
+        <span><span class="color-box" style="background:gold;"></span>1</span>
+        <span><span class="color-box" style="background:red;"></span>3</span>
+        <span><span class="color-box" style="background:green;"></span>5</span>
+        <span><span class="color-box" style="background:blue;"></span>7</span>
+        <span><span class="color-box" style="background:purple;"></span>9</span>
+    </div>
+
+    <button id="exportBtn">Export graph as PNG</button>
+    <div>
+        <label>
+            <input type="checkbox" id="toggleSpiral" checked>
+            Show Spiral Panel
+        </label>
+    </div>
+
+    <label>
+        <input type="checkbox" id="toggleFullFamily" checked>
+        Use ANY odd ancestor (full family mode)
+    </label>
+
+
+</div>
+
+<div id="main">
+    <div id="mynetwork"></div>
+    <div id="spiral">
+        <canvas id="spiralCanvas"></canvas>
+    </div>
+</div>
+<div id="infoPanel">
+    <h3>Node Info</h3>
+
+    <div id="infoContent">Click a node to see details</div>
+
+    <div id="infoButtons">
+        <button id="toggleExplanationBtn">Show Steps</button>
+        <button id="toggleMathBtn">Show Steps (Math)</button>
+        <button id="copyExplanationBtn">Copy Explanation</button>
+    </div>
+</div>
+
+<footer id="appFooter">
+    <span>© 2026 — Shaimaa Soltan</span>
+    <span class="divider">|</span>
+    <a id="aboutLink">About this project</a>
+</footer>
+<div id="aboutPopup" class="hidden">
+    <div id="aboutContent">
+        <h2>About This Project</h2>
+        <p>
+            This interactive Collatz Explorer was created by <strong>Shaimaa Soltan</strong>.
+            It visualizes inverse Collatz trees, odd-child families, v₂ factorization,
+            and dynamic spiral mappings.  
+        </p>
+
+        <p>
+            Built with JavaScript, HTML5 Canvas, vis-network, and designed with the help of
+            <strong>Microsoft Copilot</strong>.
+        </p>
+
+        <button id="closeAboutBtn">Close</button>
+    </div>
+</div>
+
+
+<script src="js/app.js"></script>
+
+</body>
+</html>
